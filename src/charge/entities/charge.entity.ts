@@ -1,8 +1,10 @@
+import { Fournisseur } from 'src/fournisseur/entities/fournisseur.entity';
 import {
   Column,
-  CreateDateColumn,
   Entity,
+  ManyToOne,
   PrimaryGeneratedColumn,
+  CreateDateColumn,
   UpdateDateColumn,
 } from 'typeorm';
 
@@ -11,20 +13,25 @@ export class Charge {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column()
-  destination: string;
+  @Column('decimal', { precision: 10, scale: 2 })
+  montant: number;
 
   @Column()
-  motif: string;
+  type: string;
 
   @Column()
   date: string;
 
+  @Column()
+  motif: string;
+
   @Column({ default: false })
   paye: boolean;
 
-  @Column('decimal', { precision: 6, scale: 2 })
-  montant: number;
+  @ManyToOne(() => Fournisseur, (fournisseur) => fournisseur.id, {
+    onDelete: 'CASCADE',
+  })
+  fournisseur: Fournisseur;
 
   @CreateDateColumn({
     type: 'timestamp',

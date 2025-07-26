@@ -11,12 +11,15 @@ import {
 } from 'typeorm';
 
 @Entity()
-export class Check {
+export class Lcn {
   @PrimaryGeneratedColumn()
   id: number;
 
   @Column({ unique: true })
-  checkNumber: string;
+  checklcnNumber: string;
+
+  @Column({ nullable: true })
+  bank: string;
 
   @Column('decimal', { precision: 10, scale: 2 })
   amount: number;

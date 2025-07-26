@@ -25,6 +25,7 @@ import { StockModule } from './stock/stock.module';
 import { StockOperationModule } from './stock-operation/stock-operation.module';
 import { MachineModule } from './machine/machine.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { LcnModule } from './lcn/lcn.module';
 
 @Module({
   imports: [
@@ -67,6 +68,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
     StockModule,
     StockOperationModule,
     MachineModule,
+    LcnModule,
   ],
   controllers: [AppController, AuthController],
   providers: [AppService],

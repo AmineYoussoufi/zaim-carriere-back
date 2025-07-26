@@ -17,13 +17,20 @@ export class ChargeService {
   }
 
   async findAll() {
-    return await this.repository.find();
+    return await this.repository.find({
+      relations: {
+        fournisseur: true,
+      },
+    });
   }
 
   async findOne(id: number) {
     return await this.repository.findOne({
       where: {
         id: id,
+      },
+      relations: {
+        fournisseur: true,
       },
     });
   }

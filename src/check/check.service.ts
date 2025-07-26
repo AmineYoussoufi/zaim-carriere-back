@@ -16,6 +16,7 @@ export class CheckService {
     return this.checksRepository.find({
       relations: {
         client: true,
+        fournisseur: true,
       },
     });
   }
