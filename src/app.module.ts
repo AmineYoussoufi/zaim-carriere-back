@@ -24,20 +24,27 @@ import { FournisseurModule } from './fournisseur/fournisseur.module';
 import { StockModule } from './stock/stock.module';
 import { StockOperationModule } from './stock-operation/stock-operation.module';
 import { MachineModule } from './machine/machine.module';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 
 @Module({
   imports: [
+    ConfigModule.forRoot({
+      isGlobal: true, // makes the ConfigModule available globally
+      envFilePath: '.env', // specify the path to your .env file
+    }),
     TypeOrmModule.forRootAsync({
-      useFactory: () => ({
+      imports: [ConfigModule],
+      useFactory: (configService: ConfigService) => ({
         type: 'mysql',
         host: '127.0.0.1',
         port: 3306,
-        username: 'zaim_user',
-        password: 'BqxW1Fw1Vfm6BCc',
-        database: 'zaim_db',
+        username: configService.get<string>('DB_USERNAME'),
+        password: configService.get<string>('DB_PASSWORD'),
+        database: configService.get<string>('DB_NAME'),
         autoLoadEntities: true,
         synchronize: true,
       }),
+      inject: [ConfigService],
     }),
     ClientModule,
     UserModule,
