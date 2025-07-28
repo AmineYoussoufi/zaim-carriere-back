@@ -79,15 +79,9 @@ export class CaisseService {
       },
     });
 
-    const fuel_list = await this.ligneBonChargeRepo.find({
+    const fuel_list = await this.fuelRepo.find({
       where: {
-        bon: {
-          dateEmission: Or(
-            ILike(`%${date}`),
-            ILike(`${splitDate[1]}-${splitDate[0]}%`),
-          ),
-        },
-        destinationType: 'Carburant',
+        date: Or(ILike(`%${date}`), ILike(`${splitDate[1]}-${splitDate[0]}%`)),
       },
     });
 
@@ -153,11 +147,9 @@ export class CaisseService {
       bank += parseFloat(element.amount.toString());
     });
 
-    fuel_list.forEach((element: LigneBonCharge) => {
-      fuel += element.prix * (element.quantite - (element.aVoirQuantity || 0));
+    fuel_list.forEach((element: Carburant) => {
+      fuel += element.totalPrice;
     });
-
-    console.log('fuel_list', fuel_list);
 
     pieces_list.forEach((element: LigneBonCharge) => {
       pieces +=

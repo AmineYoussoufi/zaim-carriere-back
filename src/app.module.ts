@@ -28,6 +28,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { LcnModule } from './lcn/lcn.module';
 import { PaymentModule } from './payment/payment.module';
 import { ReportsModule } from './reports/reports.module';
+import { VidangeModule } from './vidange/vidange.module';
 
 @Module({
   imports: [
@@ -73,6 +74,7 @@ import { ReportsModule } from './reports/reports.module';
     LcnModule,
     PaymentModule,
     ReportsModule,
+    VidangeModule,
   ],
   controllers: [AppController, AuthController],
   providers: [AppService],
