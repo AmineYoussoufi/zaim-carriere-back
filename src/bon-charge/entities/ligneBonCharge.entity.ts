@@ -30,6 +30,9 @@ export class LigneBonCharge {
   @Column({ default: '' })
   produit: string;
 
+  @Column({ default: '' })
+  destinationType: string;
+
   @ManyToOne(() => BonCharge, (bon) => bon.id, {
     onDelete: 'CASCADE',
     onUpdate: 'CASCADE',

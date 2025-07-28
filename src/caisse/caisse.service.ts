@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import moment from 'moment';
+import { LigneBonCharge } from 'src/bon-charge/entities/ligneBonCharge.entity';
 import { Bon } from 'src/bon/entities/bon.entity';
 import { Paiement } from 'src/bon/entities/paiement.entity';
 import { Carburant } from 'src/carburant/entities/carburant.entity';
@@ -9,7 +9,7 @@ import { Depot } from 'src/depot/entities/depot.entity';
 import { Entree } from 'src/entree/entities/entree.entity';
 import { PieceDeRechange } from 'src/piece-de-rechange/entities/piece-de-rechange.entity';
 import { Salaire } from 'src/salaire/entities/salaire.entity';
-import { Between, ILike, Or, Repository } from 'typeorm';
+import { ILike, Or, Repository } from 'typeorm';
 
 @Injectable()
 export class CaisseService {
@@ -36,6 +36,9 @@ export class CaisseService {
 
   @InjectRepository(PieceDeRechange)
   private piecesRepo: Repository<PieceDeRechange>;
+
+  @InjectRepository(LigneBonCharge)
+  private ligneBonChargeRepo: Repository<LigneBonCharge>;
 
   async getGeneralCurrent(date: string) {
     const splitDate = date.split('/');
@@ -76,15 +79,27 @@ export class CaisseService {
       },
     });
 
-    const fuel_list = await this.fuelRepo.find({
+    const fuel_list = await this.ligneBonChargeRepo.find({
       where: {
-        date: Or(ILike(`%${date}`), ILike(`${splitDate[1]}-${splitDate[0]}%`)),
+        bon: {
+          dateEmission: Or(
+            ILike(`%${date}`),
+            ILike(`${splitDate[1]}-${splitDate[0]}%`),
+          ),
+        },
+        destinationType: 'Carburant',
       },
     });
 
-    const pieces_list = await this.piecesRepo.find({
+    const pieces_list = await this.ligneBonChargeRepo.find({
       where: {
-        date: Or(ILike(`%${date}`), ILike(`${splitDate[1]}-${splitDate[0]}%`)),
+        bon: {
+          dateEmission: Or(
+            ILike(`%${date}`),
+            ILike(`${splitDate[1]}-${splitDate[0]}%`),
+          ),
+        },
+        destinationType: 'Pièce de rechange',
       },
     });
 
@@ -138,12 +153,15 @@ export class CaisseService {
       bank += parseFloat(element.amount.toString());
     });
 
-    fuel_list.forEach((element: Carburant) => {
-      fuel += parseFloat(element.totalPrice.toString());
+    fuel_list.forEach((element: LigneBonCharge) => {
+      fuel += element.prix * (element.quantite - (element.aVoirQuantity || 0));
     });
 
-    pieces_list.forEach((element: PieceDeRechange) => {
-      pieces += parseFloat(element.prix.toString());
+    console.log('fuel_list', fuel_list);
+
+    pieces_list.forEach((element: LigneBonCharge) => {
+      pieces +=
+        element.prix * (element.quantite - (element.aVoirQuantity || 0));
     });
 
     const paiement = await this.paymRepo.find({

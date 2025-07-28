@@ -10,6 +10,7 @@ import { Salaire } from 'src/salaire/entities/salaire.entity';
 import { Depot } from 'src/depot/entities/depot.entity';
 import { Carburant } from 'src/carburant/entities/carburant.entity';
 import { PieceDeRechange } from 'src/piece-de-rechange/entities/piece-de-rechange.entity';
+import { LigneBonCharge } from 'src/bon-charge/entities/ligneBonCharge.entity';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { PieceDeRechange } from 'src/piece-de-rechange/entities/piece-de-rechang
       Depot,
       Carburant,
       PieceDeRechange,
+      LigneBonCharge,
     ]),
   ],
   controllers: [CaisseController],
