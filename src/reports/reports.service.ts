@@ -20,6 +20,41 @@ export class ReportsService {
     private readonly chargeBonRepository: Repository<BonCharge>,
   ) {}
 
+  private parseDate(date: string): { startDate: Date; endDate: Date } {
+    const parts = date.split('/');
+    let startDate: Date;
+    let endDate: Date;
+
+    if (parts.length === 3) {
+      // DD/MM/YYYY
+      const [day, month, year] = parts.map(Number);
+      startDate = moment([year, month - 1, day])
+        .startOf('day')
+        .toDate();
+      endDate = moment([year, month - 1, day])
+        .endOf('day')
+        .toDate();
+    } else if (parts.length === 2) {
+      // MM/YYYY
+      const [month, year] = parts.map(Number);
+      startDate = moment([year, month - 1])
+        .startOf('month')
+        .toDate();
+      endDate = moment([year, month - 1])
+        .endOf('month')
+        .toDate();
+    } else if (parts.length === 1) {
+      // YYYY
+      const year = Number(parts[0]);
+      startDate = moment([year]).startOf('year').toDate();
+      endDate = moment([year]).endOf('year').toDate();
+    } else {
+      throw new Error('Invalid date format. Use DD/MM/YYYY, MM/YYYY, or YYYY');
+    }
+
+    return { startDate, endDate };
+  }
+
   async getTotalClientCredits(date?: string): Promise<{ total: number }> {
     const query = this.paymentRepository
       .createQueryBuilder('paiement')
@@ -27,8 +62,7 @@ export class ReportsService {
       .where('paiement.type = :type', { type: 'credit' });
 
     if (date) {
-      const startDate = moment(date, 'MM/YYYY').startOf('month').toDate();
-      const endDate = moment(date, 'MM/YYYY').endOf('month').toDate();
+      const { startDate, endDate } = this.parseDate(date);
       query.andWhere('paiement.date BETWEEN :start AND :end', {
         start: startDate,
         end: endDate,
@@ -60,10 +94,7 @@ export class ReportsService {
       .where('bonCharge.montant > COALESCE(paid.totalPaid, 0)');
 
     if (date) {
-      const dateMoment = moment(date, 'MM/YYYY');
-      const startDate = dateMoment.startOf('month').format('YYYY-MM-DD');
-      const endDate = dateMoment.endOf('month').format('YYYY-MM-DD');
-
+      const { startDate, endDate } = this.parseDate(date);
       query.andWhere('bonCharge.dateEmission BETWEEN :start AND :end', {
         start: startDate,
         end: endDate,
@@ -78,10 +109,25 @@ export class ReportsService {
     const query = this.bonRepository.createQueryBuilder('bon');
 
     if (date) {
-      const dateMoment = moment(date, 'MM/YYYY');
-      query
-        .where('bon.mois = :month', { month: dateMoment.month() + 1 })
-        .andWhere('bon.annee = :year', { year: dateMoment.year() });
+      const parts = date.split('/');
+      if (parts.length === 3) {
+        // DD/MM/YYYY
+        const [day, month, year] = parts.map(Number);
+        query
+          .where('bon.jour = :day', { day })
+          .andWhere('bon.mois = :month', { month })
+          .andWhere('bon.annee = :year', { year });
+      } else if (parts.length === 2) {
+        // MM/YYYY
+        const [month, year] = parts.map(Number);
+        query
+          .where('bon.mois = :month', { month })
+          .andWhere('bon.annee = :year', { year });
+      } else if (parts.length === 1) {
+        // YYYY
+        const year = Number(parts[0]);
+        query.where('bon.annee = :year', { year });
+      }
     }
 
     const count = await query.getCount();
@@ -91,8 +137,7 @@ export class ReportsService {
   async getTotalChargeBonsCount(date?: string): Promise<{ total: number }> {
     const where = {};
     if (date) {
-      const startDate = moment(date, 'MM/YYYY').startOf('month').toDate();
-      const endDate = moment(date, 'MM/YYYY').endOf('month').toDate();
+      const { startDate, endDate } = this.parseDate(date);
       where['dateEmission'] = Between(startDate, endDate);
     }
     const count = await this.chargeBonRepository.count({ where });

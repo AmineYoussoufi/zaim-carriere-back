@@ -9,7 +9,8 @@ import { Depot } from 'src/depot/entities/depot.entity';
 import { Entree } from 'src/entree/entities/entree.entity';
 import { PieceDeRechange } from 'src/piece-de-rechange/entities/piece-de-rechange.entity';
 import { Salaire } from 'src/salaire/entities/salaire.entity';
-import { ILike, Or, Repository } from 'typeorm';
+import { Between, Repository } from 'typeorm';
+import * as moment from 'moment';
 
 @Injectable()
 export class CaisseService {
@@ -40,57 +41,121 @@ export class CaisseService {
   @InjectRepository(LigneBonCharge)
   private ligneBonChargeRepo: Repository<LigneBonCharge>;
 
+  private parseDate(date: string): {
+    startDate: Date;
+    endDate: Date;
+    month?: number;
+    year: number;
+  } {
+    const parts = date.split('/');
+    let startDate: Date;
+    let endDate: Date;
+    let month: number | undefined;
+    let year: number;
+
+    if (parts.length === 3) {
+      // DD/MM/YYYY
+      const [day, monthPart, yearPart] = parts.map(Number);
+      startDate = moment([yearPart, monthPart - 1, day])
+        .startOf('day')
+        .toDate();
+      endDate = moment([yearPart, monthPart - 1, day])
+        .endOf('day')
+        .toDate();
+      month = monthPart;
+      year = yearPart;
+    } else if (parts.length === 2) {
+      // MM/YYYY
+      const [monthPart, yearPart] = parts.map(Number);
+      startDate = moment([yearPart, monthPart - 1])
+        .startOf('month')
+        .toDate();
+      endDate = moment([yearPart, monthPart - 1])
+        .endOf('month')
+        .toDate();
+      month = monthPart;
+      year = yearPart;
+    } else if (parts.length === 1) {
+      // YYYY
+      year = Number(parts[0]);
+      startDate = moment([year]).startOf('year').toDate();
+      endDate = moment([year]).endOf('year').toDate();
+    } else {
+      throw new Error('Invalid date format. Use DD/MM/YYYY, MM/YYYY, or YYYY');
+    }
+
+    return { startDate, endDate, month, year };
+  }
+
   async getGeneralCurrent(date: string) {
-    const splitDate = date.split('/');
-    const where: any = {
-      mois: splitDate[0],
-      annee: splitDate[1],
-    };
+    const { startDate, endDate, month, year } = this.parseDate(date);
+
+    // For Bon entities that use mois/annee
+    const bonWhere: any = {};
+    if (month) {
+      bonWhere.mois = month;
+    }
+    bonWhere.annee = year;
 
     const bons = await this.bonRepo.find({
       relations: {
         paiements: true,
       },
-      where,
+      where: bonWhere,
       select: ['paiements'],
     });
 
     const entrees_list = await this.inRepo.find({
       where: {
-        date: ILike(`%${date}`),
+        date: Between(
+          moment(startDate).format('YYYY-MM-DD'),
+          moment(endDate).format('YYYY-MM-DD'),
+        ),
       },
     });
 
     const charges_list = await this.outRepo.find({
       where: {
-        date: ILike(`%${date}`),
+        date: Between(
+          moment(startDate).format('YYYY-MM-DD'),
+          moment(endDate).format('YYYY-MM-DD'),
+        ),
       },
     });
 
     const salaire_list = await this.payRepo.find({
       where: {
-        date: Or(ILike(`%${date}`), ILike(`${splitDate[1]}-${splitDate[0]}%`)),
+        date: Between(
+          moment(startDate).format('YYYY-MM-DD'),
+          moment(endDate).format('YYYY-MM-DD'),
+        ),
       },
     });
 
     const bank_list = await this.bankRepo.find({
       where: {
-        date: Or(ILike(`%${date}`), ILike(`${splitDate[1]}-${splitDate[0]}%`)),
+        date: Between(
+          moment(startDate).format('YYYY-MM-DD'),
+          moment(endDate).format('YYYY-MM-DD'),
+        ),
       },
     });
 
     const fuel_list = await this.fuelRepo.find({
       where: {
-        date: Or(ILike(`%${date}`), ILike(`${splitDate[1]}-${splitDate[0]}%`)),
+        date: Between(
+          moment(startDate).format('YYYY-MM-DD'),
+          moment(endDate).format('YYYY-MM-DD'),
+        ),
       },
     });
 
     const pieces_list = await this.ligneBonChargeRepo.find({
       where: {
         bon: {
-          dateEmission: Or(
-            ILike(`%${date}`),
-            ILike(`${splitDate[1]}-${splitDate[0]}%`),
+          dateEmission: Between(
+            moment(startDate).format('YYYY-MM-DD'),
+            moment(endDate).format('YYYY-MM-DD'),
           ),
         },
         destinationType: 'Pièce de rechange',
@@ -110,7 +175,7 @@ export class CaisseService {
     let fuel: number = 0;
     let pieces: number = 0;
 
-    // Sum bon paiements – converting montant to float
+    // Sum bon paiements
     bons.forEach((bon: Bon) => {
       bon.paiements.forEach((paiement: Paiement) => {
         const montant = parseFloat(paiement.montant.toString());
@@ -158,7 +223,7 @@ export class CaisseService {
 
     const paiement = await this.paymRepo.find({
       where: {
-        bon: where,
+        bon: bonWhere,
         type: 'credit',
       },
       relations: {
@@ -168,7 +233,6 @@ export class CaisseService {
       },
     });
 
-    // Optionally, format each total to two decimals:
     return {
       ca: Number(ca.toFixed(2)),
       cash: Number(cash.toFixed(2)),
@@ -182,9 +246,11 @@ export class CaisseService {
       bank: Number(bank.toFixed(2)),
       pieces: Number(pieces.toFixed(2)),
       fuel: Number(fuel.toFixed(2)),
-      paiement, // This remains as returned from the repository
+      paiement,
     };
   }
 
-  async getCreditsPerClient() {}
+  async getCreditsPerClient() {
+    // Implementation for credits per client
+  }
 }

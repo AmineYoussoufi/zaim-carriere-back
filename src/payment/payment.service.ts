@@ -14,13 +14,47 @@ export class PaymentService {
     private readonly lcnRepository: Repository<Lcn>,
   ) {}
 
+  private parseDate(date: string): { startDate: Date; endDate?: Date } {
+    const parts = date.split('/');
+    let startDate: Date;
+    let endDate: Date | undefined;
+
+    if (parts.length === 3) {
+      // DD/MM/YYYY
+      const [day, month, year] = parts.map(Number);
+      startDate = moment([year, month - 1, day]).toDate();
+    } else if (parts.length === 2) {
+      // MM/YYYY
+      const [month, year] = parts.map(Number);
+      startDate = moment([year, month - 1])
+        .startOf('month')
+        .toDate();
+      endDate = moment([year, month - 1])
+        .endOf('month')
+        .toDate();
+    } else if (parts.length === 1) {
+      // YYYY
+      const year = Number(parts[0]);
+      startDate = moment([year]).startOf('year').toDate();
+      endDate = moment([year]).endOf('year').toDate();
+    } else {
+      throw new Error('Invalid date format. Use DD/MM/YYYY, MM/YYYY, or YYYY');
+    }
+
+    return { startDate, endDate };
+  }
+
   async getUpcomingChecks(date?: string): Promise<any[]> {
-    const queryDate = date ? moment(date, 'MM/YYYY').toDate() : new Date();
-    const startOfMonth = moment(queryDate).startOf('month').toDate();
+    const queryDate = date ? this.parseDate(date).startDate : new Date();
+    const startOfPeriod = moment(queryDate)
+      .startOf(
+        date ? (date.split('/').length === 1 ? 'year' : 'month') : 'month',
+      )
+      .toDate();
 
     const checks = await this.checkRepository.find({
       where: {
-        date: MoreThanOrEqual(startOfMonth),
+        date: MoreThanOrEqual(startOfPeriod),
         encaisse: false,
       },
       relations: ['client', 'fournisseur'],
@@ -44,12 +78,16 @@ export class PaymentService {
   }
 
   async getUpcomingLCNs(date?: string): Promise<any[]> {
-    const queryDate = date ? moment(date, 'MM/YYYY').toDate() : new Date();
-    const startOfMonth = moment(queryDate).startOf('month').toDate();
+    const queryDate = date ? this.parseDate(date).startDate : new Date();
+    const startOfPeriod = moment(queryDate)
+      .startOf(
+        date ? (date.split('/').length === 1 ? 'year' : 'month') : 'month',
+      )
+      .toDate();
 
     const lcns = await this.lcnRepository.find({
       where: {
-        date: MoreThanOrEqual(startOfMonth),
+        date: MoreThanOrEqual(startOfPeriod),
         encaisse: false,
       },
       relations: ['client', 'fournisseur'],
