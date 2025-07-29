@@ -12,8 +12,7 @@ export class VidangeService {
   ) {}
 
   async create(createVidangeDto: any): Promise<any> {
-    const vidange = this.vidangeRepository.create(createVidangeDto);
-    return await this.vidangeRepository.save(vidange);
+    return await this.vidangeRepository.save(createVidangeDto);
   }
 
   async findAll(): Promise<Vidange[]> {

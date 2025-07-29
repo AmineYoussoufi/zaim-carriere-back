@@ -27,7 +27,7 @@ export class StockController {
   }
 
   @Get()
-  findAll(@Query() paginationDto: PaginationDto) {
+  findAll(@Query() paginationDto?: PaginationDto) {
     return this.stockService.findAll(paginationDto);
   }
 
@@ -41,8 +41,18 @@ export class StockController {
     return this.stockService.update(+id, updateStockDto);
   }
 
+  @Post('/use-quantity')
+  useQuantity(@Body('id') id: string, @Body('quantity') quantity: number) {
+    return this.stockService.useQuantity(+id, quantity);
+  }
+
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.stockService.remove(+id);
+  }
+
+  @Post('/find-by-type')
+  findByType(@Body('type') type: string) {
+    return this.stockService.findByType(type);
   }
 }

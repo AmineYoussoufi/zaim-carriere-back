@@ -32,8 +32,9 @@ export class BonChargeController {
   async findAll(
     @Query('page') page: number = 1, // Default to page 1
     @Query('limit') limit: number = 10, // Default to 10 items per page
+    @Query('search') query: string = '', // Default to empty search
   ): Promise<{ data: any[]; total: number }> {
-    return this.bonChargeService.findAll(page, limit);
+    return this.bonChargeService.findAll(page, limit, query);
   }
 
   @Get(':id')

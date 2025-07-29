@@ -29,6 +29,7 @@ import { LcnModule } from './lcn/lcn.module';
 import { PaymentModule } from './payment/payment.module';
 import { ReportsModule } from './reports/reports.module';
 import { VidangeModule } from './vidange/vidange.module';
+import { ProductionModule } from './production/production.module';
 
 @Module({
   imports: [
@@ -75,6 +76,7 @@ import { VidangeModule } from './vidange/vidange.module';
     PaymentModule,
     ReportsModule,
     VidangeModule,
+    ProductionModule,
   ],
   controllers: [AppController, AuthController],
   providers: [AppService],

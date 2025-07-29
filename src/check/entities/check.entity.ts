@@ -7,7 +7,6 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   ManyToOne,
-  JoinColumn,
 } from 'typeorm';
 
 @Entity()
@@ -27,15 +26,13 @@ export class Check {
   @Column({ default: false })
   encaisse: boolean;
 
-  @Column({ nullable: true })
+  @Column({ default: 'client' })
   type: 'client' | 'fournisseur'; // To track the type of association
 
   @ManyToOne(() => Client, { nullable: true })
-  @JoinColumn({ name: 'clientId' })
   client: Client;
 
   @ManyToOne(() => Fournisseur, { nullable: true })
-  @JoinColumn({ name: 'fournisseurId' })
   fournisseur: Fournisseur;
 
   @CreateDateColumn()

@@ -1,3 +1,5 @@
+import { Machine } from 'src/machine/entities/machine.entity';
+import { Stock } from 'src/stock/entities/stock.entity';
 import { Vehicule } from 'src/vehicule/entities/vehicule.entity';
 import { Column, Entity, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
 
@@ -6,15 +8,28 @@ export class PieceDeRechange {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @ManyToOne(() => Vehicule, (vehicule: Vehicule) => vehicule.id)
-  vehicule: Vehicule;
+  // Relationship to Stock
+  @ManyToOne(() => Stock, (stock) => stock.id)
+  stock: Stock;
+
+  // Optional relationship to Vehicule
+  @ManyToOne(() => Vehicule, (vehicule) => vehicule.piecesDeRechange, {
+    nullable: true,
+  })
+  vehicule: Vehicule | null;
+
+  // Optional relationship to Machine
+  @ManyToOne(() => Machine, (machine) => machine.piecesDeRechange, {
+    nullable: true,
+  })
+  machine: Machine | null;
 
   @Column()
-  libelle: string;
+  date: Date;
 
-  @Column()
-  prix: number;
+  @Column({ nullable: true })
+  description: string;
 
-  @Column()
-  date: string;
+  @Column({ type: 'float', default: 1 })
+  quantity: number;
 }

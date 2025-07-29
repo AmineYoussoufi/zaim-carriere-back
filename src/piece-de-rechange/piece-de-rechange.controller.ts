@@ -8,8 +8,6 @@ import {
   Delete,
 } from '@nestjs/common';
 import { PieceDeRechangeService } from './piece-de-rechange.service';
-import { CreatePieceDeRechangeDto } from './dto/create-piece-de-rechange.dto';
-import { UpdatePieceDeRechangeDto } from './dto/update-piece-de-rechange.dto';
 
 @Controller('piece-de-rechange')
 export class PieceDeRechangeController {
@@ -18,7 +16,7 @@ export class PieceDeRechangeController {
   ) {}
 
   @Post()
-  create(@Body() createPieceDeRechangeDto: CreatePieceDeRechangeDto) {
+  create(@Body() createPieceDeRechangeDto: any) {
     return this.pieceDeRechangeService.create(createPieceDeRechangeDto);
   }
 
@@ -33,10 +31,7 @@ export class PieceDeRechangeController {
   }
 
   @Patch(':id')
-  update(
-    @Param('id') id: string,
-    @Body() updatePieceDeRechangeDto: UpdatePieceDeRechangeDto,
-  ) {
+  update(@Param('id') id: string, @Body() updatePieceDeRechangeDto: any) {
     return this.pieceDeRechangeService.update(+id, updatePieceDeRechangeDto);
   }
 

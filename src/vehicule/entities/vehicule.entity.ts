@@ -1,5 +1,12 @@
 import { Client } from 'src/client/entities/client.entity';
-import { Column, Entity, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
+import { PieceDeRechange } from 'src/piece-de-rechange/entities/piece-de-rechange.entity';
+import {
+  Column,
+  Entity,
+  ManyToOne,
+  OneToMany,
+  PrimaryGeneratedColumn,
+} from 'typeorm';
 
 @Entity()
 export class Vehicule {
@@ -14,4 +21,10 @@ export class Vehicule {
 
   @ManyToOne(() => Client, (client) => client.id)
   client: Client;
+
+  @OneToMany(
+    () => PieceDeRechange,
+    (pieceDeRechange) => pieceDeRechange.vehicule,
+  )
+  piecesDeRechange: PieceDeRechange[];
 }

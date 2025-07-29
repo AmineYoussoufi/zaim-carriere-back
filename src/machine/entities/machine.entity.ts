@@ -1,5 +1,6 @@
 // src/machines/entities/machine.entity.ts
-import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
+import { PieceDeRechange } from 'src/piece-de-rechange/entities/piece-de-rechange.entity';
+import { Entity, PrimaryGeneratedColumn, Column, OneToMany } from 'typeorm';
 
 @Entity()
 export class Machine {
@@ -14,6 +15,12 @@ export class Machine {
 
   @Column({ nullable: true })
   location: string;
+
+  @OneToMany(
+    () => PieceDeRechange,
+    (pieceDeRechange) => pieceDeRechange.machine,
+  )
+  piecesDeRechange: PieceDeRechange[];
 
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   createdAt: Date;

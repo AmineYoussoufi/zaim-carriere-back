@@ -1,11 +1,5 @@
 // src/vidange/entities/vidange.entity.ts
-import {
-  Entity,
-  PrimaryGeneratedColumn,
-  Column,
-  ManyToOne,
-  JoinColumn,
-} from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne } from 'typeorm';
 import { Vehicule } from '../../vehicule/entities/vehicule.entity';
 import { Machine } from '../../machine/entities/machine.entity';
 
@@ -23,10 +17,10 @@ export class Vidange {
   @Column({ nullable: true })
   description: string;
 
-  @Column({ type: 'float' })
+  @Column({ type: 'float', default: 0 })
   kilometrage: number;
 
-  @Column({ type: 'float' })
+  @Column({ type: 'float', default: 0 })
   heures_moteur: number;
 
   @Column({ nullable: true })
@@ -34,12 +28,10 @@ export class Vidange {
 
   // Relationship with Vehicule (nullable)
   @ManyToOne(() => Vehicule, { nullable: true })
-  @JoinColumn({ name: 'vehicule_id' })
   vehicule: Vehicule;
 
   // Relationship with Machine (nullable)
   @ManyToOne(() => Machine, { nullable: true })
-  @JoinColumn({ name: 'machine_id' })
   machine: Machine;
 
   @Column({ name: 'vehicule_id', nullable: true })

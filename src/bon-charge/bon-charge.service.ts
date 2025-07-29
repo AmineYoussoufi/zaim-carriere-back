@@ -35,8 +35,10 @@ export class BonChargeService {
   async findAll(
     page: number = 1,
     limit: number = 10,
+    search: string = '',
   ): Promise<{ data: BonCharge[]; total: number }> {
     const [data, total] = await this.bonChargeRepository.findAndCount({
+      where: search ? { numero: Like(`${search}%`) } : {},
       relations: {
         fournisseur: true,
       },

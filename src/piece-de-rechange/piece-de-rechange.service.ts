@@ -18,6 +18,8 @@ export class PieceDeRechangeService {
     return await this.repository.find({
       relations: {
         vehicule: true,
+        machine: true,
+        stock: true,
       },
     });
   }
