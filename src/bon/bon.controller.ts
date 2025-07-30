@@ -58,4 +58,9 @@ export class BonController {
   getSituation(@Body() body: any) {
     return this.bonService.getSituation(body);
   }
+
+  @Post('/update-montants')
+  async updateMontants() {
+    return await this.bonService.bulkUpdateAllBonsMontant();
+  }
 }

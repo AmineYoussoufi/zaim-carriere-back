@@ -30,6 +30,9 @@ export class Bon {
   @Column({ default: 0 })
   remise: number;
 
+  @Column({ type: 'float', default: 0 })
+  montant: number;
+
   @ManyToOne(() => Vehicule, (vehicule) => vehicule.id)
   vehicule: Vehicule;
 

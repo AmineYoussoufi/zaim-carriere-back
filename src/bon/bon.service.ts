@@ -175,4 +175,24 @@ export class BonService {
     });
     return await this.repository.delete(id);
   }
+
+  async bulkUpdateAllBonsMontant(): Promise<{ updatedCount: number }> {
+    // First update bons with lignes
+    const updateWithLignes = await this.repository
+      .createQueryBuilder()
+      .update(Bon)
+      .set({
+        montant: () => `(
+                SELECT COALESCE(SUM(l.quantite * l.prix), 0) + transport - remise
+                FROM ligne_bon l
+                WHERE l.bonId = Bon.id
+            )`,
+      })
+      .where('id IN (SELECT DISTINCT bonId FROM ligne_bon)')
+      .execute();
+
+    return {
+      updatedCount: updateWithLignes.affected || 0,
+    };
+  }
 }
