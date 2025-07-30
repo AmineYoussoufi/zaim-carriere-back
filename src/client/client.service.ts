@@ -52,128 +52,70 @@ export class ClientService {
       throw new Error('Invalid date format. Use DD/MM/YYYY, MM/YYYY, or YYYY');
     }
 
-    // First get all clients
+    // First get all clients with their relations
     const clients = await this.repository
       .createQueryBuilder('client')
+      .leftJoinAndSelect(
+        'client.entrees',
+        'entree',
+        includeHistory
+          ? 'YEAR(entree.date) <= :year AND (YEAR(entree.date) < :year OR MONTH(entree.date) <= :month)'
+          : this.getEntreeCondition(day, month, year),
+        { day, month, year },
+      )
+      .leftJoinAndSelect(
+        'client.bons',
+        'bon',
+        includeHistory
+          ? 'bon.annee <= :year AND (bon.annee < :year OR bon.mois <= :month)'
+          : this.getBonCondition(day, month, year),
+        { day, month, year },
+      )
+      .leftJoinAndSelect('bon.lignes', 'ligne')
+      .leftJoinAndSelect('bon.paiements', 'paiement')
       .orderBy('client.name', 'ASC')
       .getMany();
 
-    // Then calculate totals for each client separately to avoid join issues
-    const results = await Promise.all(
-      clients.map(async (client) => {
-        // Execute all queries in parallel
-        const [
-          caResult,
-          cashResult,
-          creditResult,
-          entreesResult,
-          clientWithRelations,
-        ] = await Promise.all([
-          // Calculate CA from lignes
-          this.repository
-            .createQueryBuilder('client')
-            .leftJoin(
-              'client.bons',
-              'bon',
-              includeHistory
-                ? 'bon.annee <= :year AND (bon.annee < :year OR bon.mois <= :month)'
-                : this.getBonCondition(day, month, year),
-              { day, month, year },
-            )
-            .leftJoin('bon.lignes', 'ligne')
-            .select('SUM(ligne.quantite * ligne.prix)', 'total_ca')
-            .where('client.id = :clientId', { clientId: client.id })
-            .getRawOne(),
+    // Calculate totals for each client
+    return clients.map((client) => {
+      // Calculate totals from all bons
+      let totalCA = 0;
+      let totalCash = 0;
+      let totalCredit = 0;
+      let totalEntrees = 0;
 
-          // Calculate cash payments
-          this.repository
-            .createQueryBuilder('client')
-            .leftJoin(
-              'client.bons',
-              'bon',
-              includeHistory
-                ? 'bon.annee <= :year AND (bon.annee < :year OR bon.mois <= :month)'
-                : this.getBonCondition(day, month, year),
-              { day, month, year },
-            )
-            .leftJoin('bon.paiements', 'paiement', 'paiement.type = "cash"')
-            .select('SUM(paiement.montant)', 'total_cash')
-            .where('client.id = :clientId', { clientId: client.id })
-            .getRawOne(),
+      client.bons?.forEach((bon) => {
+        // Sum all lignes for CA
+        totalCA +=
+          bon.lignes?.reduce(
+            (sum, ligne) => sum + ligne.quantite * ligne.prix,
+            0,
+          ) || 0;
 
-          // Calculate credit payments
-          this.repository
-            .createQueryBuilder('client')
-            .leftJoin(
-              'client.bons',
-              'bon',
-              includeHistory
-                ? 'bon.annee <= :year AND (bon.annee < :year OR bon.mois <= :month)'
-                : this.getBonCondition(day, month, year),
-              { day, month, year },
-            )
-            .leftJoin('bon.paiements', 'paiement', 'paiement.type = "credit"')
-            .select('SUM(paiement.montant)', 'total_credit')
-            .where('client.id = :clientId', { clientId: client.id })
-            .getRawOne(),
+        // Sum payments by type
+        bon.paiements?.forEach((paiement) => {
+          if (paiement.type === 'cash' || paiement.type === 'check') {
+            totalCash += paiement.montant;
+          } else if (paiement.type === 'credit') {
+            totalCredit += paiement.montant;
+          }
+        });
+      });
 
-          // Calculate entrees
-          this.repository
-            .createQueryBuilder('client')
-            .leftJoin(
-              'client.entrees',
-              'entree',
-              includeHistory
-                ? 'YEAR(entree.date) <= :year AND (YEAR(entree.date) < :year OR MONTH(entree.date) <= :month)'
-                : this.getEntreeCondition(day, month, year),
-              { day, month, year },
-            )
-            .select('SUM(entree.montant)', 'total_entrees')
-            .where('client.id = :clientId', { clientId: client.id })
-            .getRawOne(),
+      // Sum all entrees
+      totalEntrees =
+        client.entrees?.reduce((sum, entree) => sum + entree.montant, 0) || 0;
 
-          // Get full client data with relations
-          this.repository
-            .createQueryBuilder('client')
-            .leftJoinAndSelect(
-              'client.entrees',
-              'entree',
-              includeHistory
-                ? 'YEAR(entree.date) <= :year AND (YEAR(entree.date) < :year OR MONTH(entree.date) <= :month)'
-                : this.getEntreeCondition(day, month, year),
-              { day, month, year },
-            )
-            .leftJoinAndSelect(
-              'client.bons',
-              'bon',
-              includeHistory
-                ? 'bon.annee <= :year AND (bon.annee < :year OR bon.mois <= :month)'
-                : this.getBonCondition(day, month, year),
-              { day, month, year },
-            )
-            .leftJoinAndSelect('bon.lignes', 'ligne')
-            .leftJoinAndSelect('bon.paiements', 'paiement')
-            .where('client.id = :clientId', { clientId: client.id })
-            .getOne(),
-        ]);
-
-        const totalCA = parseFloat(caResult?.total_ca || 0);
-        const totalCash = parseFloat(cashResult?.total_cash || 0);
-        const totalCredit = parseFloat(creditResult?.total_credit || 0);
-        const totalEntrees = parseFloat(entreesResult?.total_entrees || 0);
-
-        return {
-          ...clientWithRelations,
-          chiffreAffaire: totalCA,
-          cash: totalCash,
-          credit: totalCredit,
-          entrees: totalEntrees,
-          balance: totalCredit - totalEntrees,
-        };
-      }),
-    );
-
-    return results;
+      return {
+        ...client,
+        chiffreAffaire: totalCA,
+        cash: totalCash,
+        credit: totalCredit,
+        paiements: totalCash + totalCredit, // Total payments (cash + credit)
+        entrees: totalEntrees,
+        balance: totalCredit - totalEntrees,
+      };
+    });
   }
 
   private getBonCondition(
