@@ -30,6 +30,7 @@ import { PaymentModule } from './payment/payment.module';
 import { ReportsModule } from './reports/reports.module';
 import { VidangeModule } from './vidange/vidange.module';
 import { ProductionModule } from './production/production.module';
+import { DevisModule } from './devis/devis.module';
 
 @Module({
   imports: [
@@ -77,6 +78,7 @@ import { ProductionModule } from './production/production.module';
     ReportsModule,
     VidangeModule,
     ProductionModule,
+    DevisModule,
   ],
   controllers: [AppController, AuthController],
   providers: [AppService],
