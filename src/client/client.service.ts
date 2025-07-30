@@ -36,26 +36,23 @@ export class ClientService {
   }
 
   async findFull(date: string, includeHistory: boolean = false) {
-    // Parse the date based on its format
+    // Parse the date
     const dateParts = date.split('/');
     let day: number | null = null;
     let month: number | null = null;
     let year: number;
 
     if (dateParts.length === 3) {
-      // DD/MM/YYYY
       [day, month, year] = dateParts.map((x) => parseInt(x));
     } else if (dateParts.length === 2) {
-      // MM/YYYY
       [month, year] = dateParts.map((x) => parseInt(x));
     } else if (dateParts.length === 1) {
-      // YYYY
       year = parseInt(dateParts[0]);
     } else {
       throw new Error('Invalid date format. Use DD/MM/YYYY, MM/YYYY, or YYYY');
     }
 
-    // First get the aggregated totals per client
+    // Get totals per client with DISTINCT to avoid duplicates
     const totals = await this.repository
       .createQueryBuilder('client')
       .leftJoin(
@@ -74,30 +71,23 @@ export class ClientService {
           : this.getBonCondition(day, month, year),
         { day, month, year },
       )
+      .leftJoin('bon.lignes', 'ligne')
       .leftJoin('bon.paiements', 'paiement', 'paiement.type IN (:...types)', {
         types: ['cash', 'credit'],
       })
-      .leftJoin(
-        'bon.lignes',
-        'ligne',
-        includeHistory
-          ? '1=1' // Include all lignes if including history
-          : this.getBonCondition(day, month, year), // Same condition as for bons
-        { day, month, year },
-      )
       .select([
         'client.id as client_id',
         'client.name as client_name',
-        'SUM(ligne.quantite * ligne.prix) as total_ca',
-        'SUM(CASE WHEN paiement.type = "cash" THEN paiement.montant ELSE 0 END) as total_cash',
-        'SUM(CASE WHEN paiement.type = "credit" THEN paiement.montant ELSE 0 END) as total_credit',
-        'SUM(entree.montant) as total_entrees',
+        'SUM(DISTINCT ligne.quantite * ligne.prix) as total_ca',
+        'SUM(DISTINCT CASE WHEN paiement.type = "cash" THEN paiement.montant ELSE 0 END) as total_cash',
+        'SUM(DISTINCT CASE WHEN paiement.type = "credit" THEN paiement.montant ELSE 0 END) as total_credit',
+        'SUM(DISTINCT entree.montant) as total_entrees',
       ])
       .groupBy('client.id')
       .orderBy('client.name', 'ASC')
       .getRawMany();
 
-    // Then get the full client data with relations
+    // Get full client data
     const clients = await this.repository
       .createQueryBuilder('client')
       .leftJoinAndSelect(
@@ -116,20 +106,17 @@ export class ClientService {
           : this.getBonCondition(day, month, year),
         { day, month, year },
       )
+      .leftJoinAndSelect('bon.lignes', 'ligne')
       .leftJoinAndSelect(
         'bon.paiements',
         'paiement',
         'paiement.type IN (:...types)',
-        {
-          types: ['cash', 'credit'],
-        },
+        { types: ['cash', 'credit'] },
       )
-      .leftJoinAndSelect('bon.lignes', 'ligne')
       .where('client.id IN (:...ids)', { ids: totals.map((t) => t.client_id) })
       .orderBy('client.name', 'ASC')
       .getMany();
 
-    // Combine the results
     return clients.map((client) => {
       const clientTotals = totals.find((t) => t.client_id === client.id);
       return {
