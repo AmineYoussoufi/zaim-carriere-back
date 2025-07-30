@@ -77,7 +77,14 @@ export class ClientService {
       .leftJoin('bon.paiements', 'paiement', 'paiement.type IN (:...types)', {
         types: ['cash', 'credit'],
       })
-      .leftJoin('bon.lignes', 'ligne')
+      .leftJoin(
+        'bon.lignes',
+        'ligne',
+        includeHistory
+          ? '1=1' // Include all lignes if including history
+          : this.getBonCondition(day, month, year), // Same condition as for bons
+        { day, month, year },
+      )
       .select([
         'client.id as client_id',
         'client.name as client_name',
@@ -114,7 +121,7 @@ export class ClientService {
         'paiement',
         'paiement.type IN (:...types)',
         {
-          types: ['cash', 'credit', 'check'],
+          types: ['cash', 'credit'],
         },
       )
       .leftJoinAndSelect('bon.lignes', 'ligne')
