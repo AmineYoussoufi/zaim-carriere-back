@@ -18,7 +18,7 @@ export class BonCharge {
   @Column()
   numero: string;
 
-  @Column()
+  @Column({ type: 'float' })
   montant: number;
 
   @Column()

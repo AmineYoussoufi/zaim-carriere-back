@@ -61,7 +61,7 @@ export class ClientService {
         includeHistory
           ? 'YEAR(entree.date) <= :year AND (YEAR(entree.date) < :year OR MONTH(entree.date) <= :month)'
           : this.getEntreeCondition(day, month, year),
-        { day, month, year }
+        { day, month, year },
       )
       .leftJoinAndSelect(
         'client.bons',
@@ -69,7 +69,7 @@ export class ClientService {
         includeHistory
           ? 'bon.annee <= :year AND (bon.annee < :year OR bon.mois <= :month)'
           : this.getBonCondition(day, month, year),
-        { day, month, year }
+        { day, month, year },
       )
       .leftJoinAndSelect('bon.lignes', 'ligne')
       .leftJoinAndSelect('bon.paiements', 'paiement')
@@ -99,7 +99,8 @@ export class ClientService {
       });
 
       // Sum all entrees
-      totalEntrees = client.entrees?.reduce((sum, entree) => sum + entree.montant, 0) || 0;
+      totalEntrees =
+        client.entrees?.reduce((sum, entree) => sum + entree.montant, 0) || 0;
 
       return {
         ...client,
@@ -108,10 +109,10 @@ export class ClientService {
         credit: totalCredit,
         paiements: totalCash + totalCredit, // Total payments (cash + credit)
         entrees: totalEntrees,
-        balance: totalCredit - totalEntrees
+        balance: totalCredit - totalEntrees,
       };
     });
-}
+  }
 
   private getBonCondition(
     day: number | null,

@@ -126,7 +126,7 @@ export class BonService {
     });
   }
   async findLatest() {
-    let latest = (
+    const latest = (
       await this.repository.find({
         order: { id: 'DESC' },
       })
@@ -185,7 +185,10 @@ export class BonService {
     let updatedCount = 0;
 
     for (const bon of bons) {
-      const totalLignes = bon.lignes.reduce((sum, ligne:any) => sum + (ligne.prix * ligne.quantite), 0);
+      const totalLignes = bon.lignes.reduce(
+        (sum, ligne: any) => sum + ligne.prix * ligne.quantite,
+        0,
+      );
       const newMontant = totalLignes + bon.transport - bon.remise;
 
       if (bon.montant !== newMontant) {

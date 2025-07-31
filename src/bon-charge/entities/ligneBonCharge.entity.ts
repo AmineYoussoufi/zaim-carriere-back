@@ -13,7 +13,7 @@ export class LigneBonCharge {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column('decimal', { precision: 6, scale: 2 })
+  @Column({ type: 'float' })
   quantite: number;
 
   @Column('decimal', {
@@ -24,7 +24,7 @@ export class LigneBonCharge {
   })
   aVoirQuantity: number | null;
 
-  @Column('decimal', { precision: 6, scale: 2 })
+  @Column({ type: 'float' })
   prix: number;
 
   @Column({ default: '' })
