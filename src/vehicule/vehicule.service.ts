@@ -2,7 +2,6 @@ import { Injectable } from '@nestjs/common';
 import { CreateVehiculeDto } from './dto/create-vehicule.dto';
 import { UpdateVehiculeDto } from './dto/update-vehicule.dto';
 import { InjectRepository } from '@nestjs/typeorm';
-import { User } from 'src/user/entities/user.entity';
 import { Repository } from 'typeorm';
 import { Vehicule } from './entities/vehicule.entity';
 
@@ -20,6 +19,7 @@ export class VehiculeService {
     return await this.repository.find({
       relations: {
         client: true,
+        chauffeur: true, // Include the chauffeur relation
       },
     });
   }
@@ -29,18 +29,18 @@ export class VehiculeService {
       where: {
         type: 'Local',
       },
+      relations: {
+        chauffeur: true, // Include the chauffeur relation
+      },
     });
   }
 
   async findOne(id: number) {
     return await this.repository.findOne({
-      where: [
-        {
-          id: +id,
-        },
-      ],
+      where: { id: id },
       relations: {
         client: true,
+        chauffeur: true,
       },
     });
   }

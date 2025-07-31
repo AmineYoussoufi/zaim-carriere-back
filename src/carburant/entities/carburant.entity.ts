@@ -7,7 +7,7 @@ export class Carburant {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column({ unique: true })
+  @Column()
   numero: string;
 
   @ManyToOne(() => Vehicule, (vehicule) => vehicule.id, { nullable: false })

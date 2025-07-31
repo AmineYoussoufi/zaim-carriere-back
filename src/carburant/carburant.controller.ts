@@ -6,6 +6,7 @@ import {
   Patch,
   Param,
   Delete,
+  Query,
 } from '@nestjs/common';
 import { CarburantService } from './carburant.service';
 import { CreateCarburantDto } from './dto/create-carburant.dto';
@@ -21,8 +22,8 @@ export class CarburantController {
   }
 
   @Get()
-  findAll() {
-    return this.carburantService.findAll();
+  findAll(@Query() query: { date?: string }) {
+    return this.carburantService.findAll(query.date);
   }
 
   @Get(':id')
