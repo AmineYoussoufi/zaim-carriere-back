@@ -177,22 +177,24 @@ export class BonService {
   }
 
   async bulkUpdateAllBonsMontant(): Promise<{ updatedCount: number }> {
-    // First update bons with lignes
-    const updateWithLignes = await this.repository
-      .createQueryBuilder()
-      .update(Bon)
-      .set({
-        montant: () => `(
-                SELECT COALESCE(SUM(l.quantite * l.prix), 0) + transport - remise
-                FROM ligne_bon l
-                WHERE l.bonId = Bon.id
-            )`,
-      })
-      .where('id IN (SELECT DISTINCT bonId FROM ligne_bon)')
-      .execute();
+    const bons = await this.repository.find({
+      relations: ['lignes'],
+      where: {},
+      order: { id: 'ASC' },
+    });
+    let updatedCount = 0;
 
-    return {
-      updatedCount: updateWithLignes.affected || 0,
-    };
+    for (const bon of bons) {
+      const totalLignes = bon.lignes.reduce((sum, ligne:any) => sum + (ligne.prix * ligne.quantite), 0);
+      const newMontant = totalLignes + bon.transport - bon.remise;
+
+      if (bon.montant !== newMontant) {
+        bon.montant = newMontant;
+        await this.repository.save(bon);
+        updatedCount++;
+      }
+    }
+
+    return { updatedCount };
   }
 }
