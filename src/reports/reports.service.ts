@@ -6,6 +6,7 @@ import { Bon } from '../bon/entities/bon.entity';
 import { BonCharge } from '../bon-charge/entities/bon-charge.entity';
 import { Paiement } from 'src/bon/entities/paiement.entity';
 import * as moment from 'moment';
+import { Entree } from 'src/entree/entities/entree.entity';
 
 @Injectable()
 export class ReportsService {
@@ -18,6 +19,8 @@ export class ReportsService {
     private readonly bonRepository: Repository<Bon>,
     @InjectRepository(BonCharge)
     private readonly chargeBonRepository: Repository<BonCharge>,
+    @InjectRepository(Entree)
+    private readonly entreeRepository: Repository<Entree>,
   ) {}
 
   private parseDate(date: string): { startDate: Date; endDate: Date } {
@@ -188,15 +191,15 @@ export class ReportsService {
         const caResult = await caQuery.getRawOne();
         const chiffreAffaires = Number(caResult?.total) || 0;
 
-        // 2. Entrées (payments with type 'entree')
-        // Since Paiement entity doesn't have a date column, we'll join with Bon
-        const entreesQuery = this.paymentRepository
-          .createQueryBuilder('paiement')
-          .select('COALESCE(SUM(paiement.montant), 0)', 'total')
-          .leftJoin('paiement.bon', 'bon')
-          .where('paiement.type = :type', { type: 'entree' })
-          .andWhere('bon.mois = :month', { month })
-          .andWhere('bon.annee = :year', { year });
+        // 2. Entrées (from Entree entity)
+        const entreesQuery = this.entreeRepository
+          .createQueryBuilder('entree')
+          .select('COALESCE(SUM(entree.montant), 0)', 'total')
+          .where('YEAR(STR_TO_DATE(entree.date, "%d/%m/%Y")) = :year', { year })
+          .andWhere('MONTH(STR_TO_DATE(entree.date, "%d/%m/%Y")) = :month', {
+            month,
+          });
+
         const entreesResult = await entreesQuery.getRawOne();
         const entrees = Number(entreesResult?.total) || 0;
 
