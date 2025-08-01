@@ -143,4 +143,107 @@ export class ReportsService {
     const count = await this.chargeBonRepository.count({ where });
     return { total: count };
   }
+
+  async getRapportCaisse(date?: string): Promise<any> {
+    // Determine date range
+    let startDate: Date, endDate: Date;
+    if (date) {
+      const parsedDates = this.parseDate(date);
+      startDate = parsedDates.startDate;
+      endDate = parsedDates.endDate;
+    } else {
+      // Default to current year if no date specified
+      const year = new Date().getFullYear();
+      startDate = moment([year]).startOf('year').toDate();
+      endDate = moment([year]).endOf('year').toDate();
+    }
+
+    // Get all months in the date range
+    const months: { year: number; month: number }[] = [];
+    let currentDate = moment(startDate);
+    while (currentDate.isBefore(endDate)) {
+      months.push({
+        year: currentDate.year(),
+        month: currentDate.month() + 1, // months are 1-based
+      });
+      currentDate = currentDate.add(1, 'month');
+    }
+
+    // Process each month
+    const rapport = await Promise.all(
+      months.map(async ({ year, month }) => {
+        const monthStart = moment([year, month - 1])
+          .startOf('month')
+          .toDate();
+        const monthEnd = moment([year, month - 1])
+          .endOf('month')
+          .toDate();
+
+        // 1. Chiffre d'affaires (total montant from bons)
+        const caQuery = this.bonRepository
+          .createQueryBuilder('bon')
+          .select('COALESCE(SUM(bon.montant), 0)', 'total')
+          .where('bon.mois = :month', { month })
+          .andWhere('bon.annee = :year', { year });
+        const caResult = await caQuery.getRawOne();
+        const chiffreAffaires = Number(caResult?.total) || 0;
+
+        // 2. Entrées (payments with type 'entree')
+        // Since Paiement entity doesn't have a date column, we'll join with Bon
+        const entreesQuery = this.paymentRepository
+          .createQueryBuilder('paiement')
+          .select('COALESCE(SUM(paiement.montant), 0)', 'total')
+          .leftJoin('paiement.bon', 'bon')
+          .where('paiement.type = :type', { type: 'entree' })
+          .andWhere('bon.mois = :month', { month })
+          .andWhere('bon.annee = :year', { year });
+        const entreesResult = await entreesQuery.getRawOne();
+        const entrees = Number(entreesResult?.total) || 0;
+
+        // 3. Charges (total from charge bons)
+        const chargesQuery = this.chargeBonRepository
+          .createQueryBuilder('bonCharge')
+          .select('COALESCE(SUM(bonCharge.montant), 0)', 'total')
+          .where('bonCharge.dateEmission BETWEEN :start AND :end', {
+            start: monthStart,
+            end: monthEnd,
+          });
+        const chargesResult = await chargesQuery.getRawOne();
+        const charges = Number(chargesResult?.total) || 0;
+
+        // 4. Crédits (client credits)
+        const creditsQuery = this.paymentRepository
+          .createQueryBuilder('paiement')
+          .select('COALESCE(SUM(paiement.montant), 0)', 'total')
+          .leftJoin('paiement.bon', 'bon')
+          .where('paiement.type = :type', { type: 'credit' })
+          .andWhere('bon.mois = :month', { month })
+          .andWhere('bon.annee = :year', { year });
+        const creditsResult = await creditsQuery.getRawOne();
+        const credits = Number(creditsResult?.total) || 0;
+
+        // 5. Paiements (all payments except credits)
+        const paiementsQuery = this.paymentRepository
+          .createQueryBuilder('paiement')
+          .select('COALESCE(SUM(paiement.montant), 0)', 'total')
+          .leftJoin('paiement.bon', 'bon')
+          .where('paiement.type != :type', { type: 'credit' })
+          .andWhere('bon.mois = :month', { month })
+          .andWhere('bon.annee = :year', { year });
+        const paiementsResult = await paiementsQuery.getRawOne();
+        const paiements = Number(paiementsResult?.total) || 0;
+
+        return {
+          month: `${month.toString().padStart(2, '0')}/${year}`,
+          chiffreAffaires,
+          entrees,
+          charges,
+          credits,
+          paiements,
+        };
+      }),
+    );
+
+    return rapport;
+  }
 }

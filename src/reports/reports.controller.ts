@@ -24,4 +24,9 @@ export class ReportsController {
   async getTotalChargeBonsCount(@Query('date') date?: string) {
     return this.reportsService.getTotalChargeBonsCount(date);
   }
+
+  @Get('caisse')
+  async getRapportCaisse(@Query('date') date?: string) {
+    return this.reportsService.getRapportCaisse(date);
+  }
 }
