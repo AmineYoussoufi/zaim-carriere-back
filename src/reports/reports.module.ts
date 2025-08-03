@@ -7,10 +7,20 @@ import { Bon } from 'src/bon/entities/bon.entity';
 import { BonCharge } from 'src/bon-charge/entities/bon-charge.entity';
 import { Paiement } from 'src/bon/entities/paiement.entity';
 import { Entree } from 'src/entree/entities/entree.entity';
+import { Salarie } from 'src/salarie/entities/salarie.entity';
+import { Carburant } from 'src/carburant/entities/carburant.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Paiement, Fournisseur, Bon, BonCharge, Entree]),
+    TypeOrmModule.forFeature([
+      Paiement,
+      Fournisseur,
+      Bon,
+      BonCharge,
+      Entree,
+      Salarie,
+      Carburant,
+    ]),
   ],
   controllers: [ReportsController],
   providers: [ReportsService],

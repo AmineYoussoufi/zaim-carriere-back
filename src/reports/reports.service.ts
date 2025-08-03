@@ -7,6 +7,8 @@ import { BonCharge } from '../bon-charge/entities/bon-charge.entity';
 import { Paiement } from 'src/bon/entities/paiement.entity';
 import * as moment from 'moment';
 import { Entree } from 'src/entree/entities/entree.entity';
+import { Salarie } from 'src/salarie/entities/salarie.entity';
+import { Carburant } from 'src/carburant/entities/carburant.entity';
 
 @Injectable()
 export class ReportsService {
@@ -21,6 +23,10 @@ export class ReportsService {
     private readonly chargeBonRepository: Repository<BonCharge>,
     @InjectRepository(Entree)
     private readonly entreeRepository: Repository<Entree>,
+    @InjectRepository(Salarie)
+    private readonly salarieRepository: Repository<Salarie>,
+    @InjectRepository(Carburant)
+    private readonly carburantRepository: Repository<Carburant>,
   ) {}
 
   private parseDate(date: string): { startDate: Date; endDate: Date } {
@@ -181,6 +187,7 @@ export class ReportsService {
         const monthEnd = moment([year, month - 1])
           .endOf('month')
           .toDate();
+        const monthMoment = moment([year, month - 1]);
 
         // 1. Chiffre d'affaires (total montant from bons)
         const caQuery = this.bonRepository
@@ -199,7 +206,6 @@ export class ReportsService {
           .andWhere('MONTH(STR_TO_DATE(entree.date, "%d/%m/%Y")) = :month', {
             month,
           });
-
         const entreesResult = await entreesQuery.getRawOne();
         const entrees = Number(entreesResult?.total) || 0;
 
@@ -236,6 +242,32 @@ export class ReportsService {
         const paiementsResult = await paiementsQuery.getRawOne();
         const paiements = Number(paiementsResult?.total) || 0;
 
+        // 6. Total Salaries hired before or during this month
+        const salariesQuery = this.salarieRepository
+          .createQueryBuilder('salarie')
+          .select('COALESCE(SUM(salarie.salaire), 0)', 'total')
+          .where('STR_TO_DATE(salarie.date, "%d/%m/%Y") <= :endDate', {
+            endDate: monthEnd,
+          });
+        const salariesResult = await salariesQuery.getRawOne();
+        const salaires = Number(salariesResult?.total) || 0;
+
+        // 7. Total Carburant for this month
+        const carburantQuery = this.carburantRepository
+          .createQueryBuilder('carburant')
+          .select(
+            'COALESCE(SUM(carburant.liters * carburant.unitPrice), 0)',
+            'total',
+          )
+          .where('YEAR(STR_TO_DATE(carburant.date, "%d/%m/%Y")) = :year', {
+            year,
+          })
+          .andWhere('MONTH(STR_TO_DATE(carburant.date, "%d/%m/%Y")) = :month', {
+            month,
+          });
+        const carburantResult = await carburantQuery.getRawOne();
+        const carburant = Number(carburantResult?.total) || 0;
+
         return {
           month: `${month.toString().padStart(2, '0')}/${year}`,
           chiffreAffaires,
@@ -243,6 +275,8 @@ export class ReportsService {
           charges,
           credits,
           paiements,
+          salaires,
+          carburant,
         };
       }),
     );
