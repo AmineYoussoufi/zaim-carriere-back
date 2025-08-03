@@ -295,16 +295,13 @@ export class ReportsService {
 
   async getVehiculesStats(date?: string): Promise<any[]> {
     // Get date range if provided
-    let startDate: Date, endDate: Date;
+    let yearFilter: number | undefined;
     if (date) {
-      const parsedDates = this.parseDate(date);
-      startDate = parsedDates.startDate;
-      endDate = parsedDates.endDate;
-    } else {
-      // Default to current year if no date specified
-      const year = new Date().getFullYear();
-      startDate = moment([year]).startOf('year').toDate();
-      endDate = moment([year]).endOf('year').toDate();
+      const parts = date.split('/');
+      if (parts.length === 1) {
+        // YYYY format
+        yearFilter = parseInt(parts[0]);
+      }
     }
 
     // Get all vehicles with their relations
@@ -312,79 +309,84 @@ export class ReportsService {
       where: {
         type: 'Local',
       },
-      relations: ['piecesDeRechange', 'chauffeur'],
+      relations: ['chauffeur'],
     });
 
     // Process each vehicle
     const stats = await Promise.all(
       vehicules.map(async (vehicule) => {
-        // 1. Count trips (bons) for this vehicle - using separate day/month/year fields
-        const tripsCount = await this.bonRepository
+        // 1. Count trips (bons) for this vehicle
+        const tripsQuery = this.bonRepository
           .createQueryBuilder('bon')
-          .where('bon.vehiculeId = :vehiculeId', { vehiculeId: vehicule.id })
-          .andWhere(
-            `CONCAT(bon.annee, '-', LPAD(bon.mois, 2, '0'), '-', LPAD(bon.jour, 2, '0')) BETWEEN :startDate AND :endDate`,
-            {
-              startDate: moment(startDate).format('YYYY-MM-DD'),
-              endDate: moment(endDate).format('YYYY-MM-DD'),
-            },
-          )
-          .getCount();
+          .where('bon.vehiculeId = :vehiculeId', { vehiculeId: vehicule.id });
+
+        if (yearFilter) {
+          tripsQuery.andWhere('bon.annee = :year', { year: yearFilter });
+        }
+
+        const tripsCount = await tripsQuery.getCount();
 
         // 2. Calculate fuel consumption and cost from carburant
         const carburantStats = await this.carburantRepository
           .createQueryBuilder('carburant')
           .select('SUM(carburant.liters)', 'totalLiters')
           .addSelect('SUM(carburant.liters * carburant.unitPrice)', 'totalCost')
-          .where('carburant.vehiculeId = :vehiculeId', {
+          .where('carburant.vehicule = :vehiculeId', {
             vehiculeId: vehicule.id,
-          })
-          .andWhere(
-            'STR_TO_DATE(carburant.date, "%d/%m/%Y") BETWEEN :startDate AND :endDate',
+          });
+
+        if (yearFilter) {
+          carburantStats.andWhere(
+            'YEAR(STR_TO_DATE(carburant.date, "%d/%m/%Y")) = :year',
             {
-              startDate,
-              endDate,
+              year: yearFilter,
             },
-          )
-          .getRawOne();
+          );
+        }
+
+        const carburantResult = await carburantStats.getRawOne();
 
         // 3. Calculate oil changes count and cost from vidanges
-        const vidangesStats = await this.vidangeRepository
+        const vidangesQuery = this.vidangeRepository
           .createQueryBuilder('vidange')
           .select('COUNT(vidange.id)', 'count')
           .addSelect('SUM(vidange.cout)', 'totalCost')
-          .where('vidange.vehiculeId = :vehiculeId', {
-            vehiculeId: vehicule.id,
-          })
-          .andWhere('vidange.date BETWEEN :startDate AND :endDate', {
-            startDate,
-            endDate,
-          })
-          .getRawOne();
+          .where('vidange.vehicule = :vehiculeId', { vehiculeId: vehicule.id });
 
-        // 4. Calculate spare parts count (removed cost calculation since it depends on Stock)
-        const piecesCount = await this.pieceDeRechangeRepository.count({
-          where: {
-            vehicule: { id: vehicule.id },
-            date: Between(startDate, endDate),
-          },
-        });
+        if (yearFilter) {
+          vidangesQuery.andWhere('YEAR(vidange.date) = :year', {
+            year: yearFilter,
+          });
+        }
+
+        const vidangesResult = await vidangesQuery.getRawOne();
+
+        // 4. Calculate spare parts count
+        const piecesQuery = this.pieceDeRechangeRepository
+          .createQueryBuilder('piece')
+          .select('COUNT(piece.id)', 'count')
+          .where('piece.vehicule = :vehiculeId', { vehiculeId: vehicule.id });
+
+        if (yearFilter) {
+          piecesQuery.andWhere('YEAR(piece.date) = :year', {
+            year: yearFilter,
+          });
+        }
+
+        const piecesResult = await piecesQuery.getRawOne();
 
         return {
           id: vehicule.id,
           matricule: vehicule.immatricule,
-          marque: vehicule.marque,
-          modele: vehicule.modele,
-          chauffeur: vehicule.chauffeur
-            ? `${vehicule.chauffeur.name}`
-            : 'Non affecté',
+          marque: vehicule.marque || 'N/A',
+          modele: vehicule.modele || 'N/A',
+          chauffeur: vehicule.chauffeur?.name || 'Non affecté',
           totalVoyages: tripsCount || 0,
-          totalCarburant: parseFloat(carburantStats?.totalLiters) || 0,
-          coutCarburant: parseFloat(carburantStats?.totalCost) || 0,
-          nombreVidanges: parseInt(vidangesStats?.count) || 0,
-          coutVidanges: parseFloat(vidangesStats?.totalCost) || 0,
-          nombrePieces: piecesCount || 0,
-          // Removed coutPieces since it depended on Stock entity
+          totalCarburant: parseFloat(carburantResult?.totalLiters) || 0,
+          coutCarburant: parseFloat(carburantResult?.totalCost) || 0,
+          nombreVidanges: parseInt(vidangesResult?.count) || 0,
+          coutVidanges: parseFloat(vidangesResult?.totalCost) || 0,
+          nombrePieces: parseInt(piecesResult?.count) || 0,
         };
       }),
     );
