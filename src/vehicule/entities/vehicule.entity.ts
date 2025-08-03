@@ -1,6 +1,9 @@
+import { Bon } from 'src/bon/entities/bon.entity';
+import { Carburant } from 'src/carburant/entities/carburant.entity';
 import { Client } from 'src/client/entities/client.entity';
 import { PieceDeRechange } from 'src/piece-de-rechange/entities/piece-de-rechange.entity';
 import { Salarie } from 'src/salarie/entities/salarie.entity';
+import { Vidange } from 'src/vidange/entities/vidange.entity';
 import {
   Column,
   Entity,
@@ -20,15 +23,30 @@ export class Vehicule {
   @Column()
   type: string;
 
+  @Column()
+  marque: string;
+
+  @Column()
+  modele: string;
+
+  @Column()
+  kilometrageVidange: number;
+
   @ManyToOne(() => Client, (client) => client.id)
   client: Client;
 
   @ManyToOne(() => Salarie, (salarie) => salarie.id) // Many-to-one with Salarie
   chauffeur: Salarie; // Driver is a Salarie
 
-  @OneToMany(
-    () => PieceDeRechange,
-    (pieceDeRechange) => pieceDeRechange.vehicule,
-  )
+  @OneToMany(() => PieceDeRechange, (piece) => piece.vehicule)
   piecesDeRechange: PieceDeRechange[];
+
+  @OneToMany(() => Bon, (bon) => bon.vehicule)
+  bons: Bon[];
+
+  @OneToMany(() => Carburant, (carburant) => carburant.vehicule)
+  carburants: Carburant[];
+
+  @OneToMany(() => Vidange, (vidange) => vidange.vehicule)
+  vidanges: Vidange[];
 }

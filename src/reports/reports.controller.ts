@@ -29,4 +29,8 @@ export class ReportsController {
   async getRapportCaisse(@Query('date') date?: string) {
     return this.reportsService.getRapportCaisse(date);
   }
+  @Get('vehicules')
+  async getRapportVehicules(@Query('date') date?: string) {
+    return this.reportsService.getVehiculesStats(date);
+  }
 }
