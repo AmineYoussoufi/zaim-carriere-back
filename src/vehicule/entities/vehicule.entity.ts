@@ -4,6 +4,7 @@ import { Client } from 'src/client/entities/client.entity';
 import { PieceDeRechange } from 'src/piece-de-rechange/entities/piece-de-rechange.entity';
 import { Salarie } from 'src/salarie/entities/salarie.entity';
 import { Vidange } from 'src/vidange/entities/vidange.entity';
+import { VisiteTechnique } from 'src/visite-technique/entities/visite-technique.entity';
 import {
   Column,
   Entity,
@@ -23,13 +24,13 @@ export class Vehicule {
   @Column()
   type: string;
 
-  @Column()
+  @Column({ nullable: true })
   marque: string;
 
-  @Column()
+  @Column({ nullable: true })
   modele: string;
 
-  @Column()
+  @Column({ nullable: true })
   kilometrageVidange: number;
 
   @ManyToOne(() => Client, (client) => client.id)
@@ -49,4 +50,10 @@ export class Vehicule {
 
   @OneToMany(() => Vidange, (vidange) => vidange.vehicule)
   vidanges: Vidange[];
+
+  @OneToMany(
+    () => VisiteTechnique,
+    (visiteTechnique) => visiteTechnique.vehicule,
+  )
+  visitesTechniques: VisiteTechnique[];
 }

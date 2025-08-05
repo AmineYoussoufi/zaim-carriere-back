@@ -41,6 +41,10 @@ export class VehiculeService {
       relations: {
         client: true,
         chauffeur: true,
+        piecesDeRechange: true,
+        bons: true,
+        carburants: true,
+        vidanges: true,
       },
     });
   }

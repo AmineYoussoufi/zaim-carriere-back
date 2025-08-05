@@ -31,6 +31,7 @@ import { ReportsModule } from './reports/reports.module';
 import { VidangeModule } from './vidange/vidange.module';
 import { ProductionModule } from './production/production.module';
 import { DevisModule } from './devis/devis.module';
+import { VisiteTechniqueModule } from './visite-technique/visite-technique.module';
 
 @Module({
   imports: [
@@ -79,6 +80,7 @@ import { DevisModule } from './devis/devis.module';
     VidangeModule,
     ProductionModule,
     DevisModule,
+    VisiteTechniqueModule,
   ],
   controllers: [AppController, AuthController],
   providers: [AppService],
