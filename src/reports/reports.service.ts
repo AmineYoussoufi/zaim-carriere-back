@@ -196,7 +196,6 @@ export class ReportsService {
         const monthEnd = moment([year, month - 1])
           .endOf('month')
           .toDate();
-        const monthMoment = moment([year, month - 1]);
 
         // 1. Chiffre d'affaires (total montant from bons)
         const caQuery = this.bonRepository
@@ -264,15 +263,12 @@ export class ReportsService {
         // 7. Total Carburant for this month
         const carburantQuery = this.carburantRepository
           .createQueryBuilder('carburant')
-          .select(
-            'COALESCE(SUM(carburant.liters * carburant.unitPrice), 0)',
-            'total',
-          )
-          .where('YEAR(STR_TO_DATE(carburant.date, "%d/%m/%Y")) = :year', {
-            year,
+          .select('SUM(carburant.liters * carburant.unitPrice)', 'total')
+          .where('YEAR(carburant.date) = :year', {
+            year: year,
           })
-          .andWhere('MONTH(STR_TO_DATE(carburant.date, "%d/%m/%Y")) = :month', {
-            month,
+          .andWhere('MONTH(carburant.date) = :month', {
+            month: month,
           });
         const carburantResult = await carburantQuery.getRawOne();
         const carburant = Number(carburantResult?.total) || 0;

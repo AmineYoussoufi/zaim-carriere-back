@@ -17,7 +17,10 @@ export class Stock {
   @Column({ nullable: true })
   type: string;
 
-  @Column()
+  @Column({ type: 'float', default: 0 })
+  prixVente: number;
+
+  @Column({ default: 0 })
   quantity: number;
 
   @CreateDateColumn()
