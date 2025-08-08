@@ -54,6 +54,7 @@ export class VehiculeService {
         carburants: true,
         vidanges: true,
         documents: true,
+        visitesTechniques: true,
       },
     });
   }
