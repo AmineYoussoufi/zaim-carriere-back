@@ -11,7 +11,9 @@ describe('VisiteTechniqueController', () => {
       providers: [VisiteTechniqueService],
     }).compile();
 
-    controller = module.get<VisiteTechniqueController>(VisiteTechniqueController);
+    controller = module.get<VisiteTechniqueController>(
+      VisiteTechniqueController,
+    );
   });
 
   it('should be defined', () => {

@@ -5,6 +5,7 @@ import { PieceDeRechange } from 'src/piece-de-rechange/entities/piece-de-rechang
 import { Salarie } from 'src/salarie/entities/salarie.entity';
 import { Vidange } from 'src/vidange/entities/vidange.entity';
 import { VisiteTechnique } from 'src/visite-technique/entities/visite-technique.entity';
+import { Document } from './document.entity';
 import {
   Column,
   Entity,
@@ -50,6 +51,9 @@ export class Vehicule {
 
   @OneToMany(() => Vidange, (vidange) => vidange.vehicule)
   vidanges: Vidange[];
+
+  @OneToMany(() => Document, (document) => document.vehicule)
+  documents: Document[];
 
   @OneToMany(
     () => VisiteTechnique,
