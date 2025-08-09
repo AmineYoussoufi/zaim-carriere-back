@@ -11,6 +11,7 @@ import { PieceDeRechange } from 'src/piece-de-rechange/entities/piece-de-rechang
 import { Salaire } from 'src/salaire/entities/salaire.entity';
 import { Between, Repository } from 'typeorm';
 import * as moment from 'moment';
+import { BonCharge } from 'src/bon-charge/entities/bon-charge.entity';
 
 @Injectable()
 export class CaisseService {
@@ -22,6 +23,9 @@ export class CaisseService {
 
   @InjectRepository(Entree)
   private inRepo: Repository<Entree>;
+
+  @InjectRepository(BonCharge)
+  private bonChargeRepo: Repository<BonCharge>;
 
   @InjectRepository(Charge)
   private outRepo: Repository<Charge>;
@@ -123,6 +127,15 @@ export class CaisseService {
       },
     });
 
+    const bon_charges_list = await this.bonChargeRepo.find({
+      where: {
+        dateEmission: Between(
+          moment(startDate).format('YYYY-MM-DD'),
+          moment(endDate).format('YYYY-MM-DD'),
+        ),
+      },
+    });
+
     const salaire_list = await this.payRepo.find({
       where: {
         date: Between(
@@ -168,6 +181,7 @@ export class CaisseService {
     let check: number = 0;
     let entrees: number = 0;
     let charges: number = 0;
+    let bon_charges: number = 0;
     let cp: number = 0;
     let cnp: number = 0;
     let salaires: number = 0;
@@ -203,6 +217,9 @@ export class CaisseService {
         cnp += montant;
       }
     });
+    bon_charges_list.forEach((bonCharge: BonCharge) => {
+      bon_charges += parseFloat(bonCharge.montant.toString());
+    });
 
     salaire_list.forEach((salaire: Salaire) => {
       salaires += parseFloat(salaire.amount.toString());
@@ -233,6 +250,8 @@ export class CaisseService {
       },
     });
 
+    const paiementExc = credit - entrees; // Adjust credit to exclude cash
+
     return {
       ca: Number(ca.toFixed(2)),
       cash: Number(cash.toFixed(2)),
@@ -246,7 +265,9 @@ export class CaisseService {
       bank: Number(bank.toFixed(2)),
       pieces: Number(pieces.toFixed(2)),
       fuel: Number(fuel.toFixed(2)),
+      bon_charges: Number(bon_charges.toFixed(2)),
       paiement,
+      paiementExc: Number(paiementExc.toFixed(2)),
     };
   }
 

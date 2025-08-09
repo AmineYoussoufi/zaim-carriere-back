@@ -12,6 +12,7 @@ import { Carburant } from 'src/carburant/entities/carburant.entity';
 import { PieceDeRechange } from 'src/piece-de-rechange/entities/piece-de-rechange.entity';
 import { Vidange } from 'src/vidange/entities/vidange.entity';
 import { Vehicule } from 'src/vehicule/entities/vehicule.entity';
+import { Charge } from 'src/charge/entities/charge.entity';
 
 @Injectable()
 export class ReportsService {
@@ -36,6 +37,8 @@ export class ReportsService {
     private readonly pieceDeRechangeRepository: Repository<PieceDeRechange>,
     @InjectRepository(Vidange)
     private readonly vidangeRepository: Repository<Vidange>,
+    @InjectRepository(Charge)
+    private readonly chargeRepository: Repository<Charge>,
   ) {}
 
   private parseDate(date: string): { startDate: Date; endDate: Date } {
@@ -79,16 +82,26 @@ export class ReportsService {
       .select('SUM(paiement.montant)', 'total')
       .where('paiement.type = :type', { type: 'credit' });
 
+    const entree = this.entreeRepository
+      .createQueryBuilder('entree')
+      .select('SUM(entree.montant)', 'total')
+
     if (date) {
       const { startDate, endDate } = this.parseDate(date);
       query.andWhere('paiement.date BETWEEN :start AND :end', {
         start: startDate,
         end: endDate,
       });
+      entree.andWhere('entree.date BETWEEN :start AND :end', {
+        start: startDate,
+        end: endDate,
+      });
     }
 
     const result = await query.getRawOne();
-    return { total: Number(result.total) || 0 };
+    const entreeResult = await entree.getRawOne();
+    const totalEntree = Number(entreeResult?.total) || 0;
+    return { total: Number(result.total - totalEntree) || 0 };
   }
 
   async getTotalFournisseurCredits(date?: string): Promise<{ total: number }> {
@@ -111,16 +124,26 @@ export class ReportsService {
       )
       .where('bonCharge.montant > COALESCE(paid.totalPaid, 0)');
 
+    const chargeQuery = this.chargeRepository
+      .createQueryBuilder('charge')
+      .select('SUM(charge.montant)', 'totalCharge')
+      .where('charge.paye = :paye', { paye: true });
+
     if (date) {
       const { startDate, endDate } = this.parseDate(date);
       query.andWhere('bonCharge.dateEmission BETWEEN :start AND :end', {
         start: startDate,
         end: endDate,
       });
+      chargeQuery.andWhere('charge.date BETWEEN :start AND :end', {
+        start: startDate,
+        end: endDate,
+      });
     }
 
     const result = await query.getRawOne();
-    return { total: Number(result.totalCredit) || 0 };
+    const chargeResult = await chargeQuery.getRawOne();
+    return { total: Number(result.totalCredit - chargeResult.totalCharge) || 0 };
   }
 
   async getTotalBonsCount(date?: string): Promise<{ total: number }> {
