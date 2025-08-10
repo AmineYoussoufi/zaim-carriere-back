@@ -102,7 +102,6 @@ export class ProductionService {
           `Produit with ID ${updateProductionDto.ProduitId} not found`,
         );
       }
-      Production.produit = Produit;
     }
 
     Object.assign(Production, updateProductionDto);

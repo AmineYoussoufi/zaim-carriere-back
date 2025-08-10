@@ -14,6 +14,7 @@ import { PieceDeRechange } from 'src/piece-de-rechange/entities/piece-de-rechang
 import { Vidange } from 'src/vidange/entities/vidange.entity';
 import { Charge } from 'src/charge/entities/charge.entity';
 import { Production } from 'src/production/entities/production.entity';
+import { Machine } from 'src/machine/entities/machine.entity';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { Production } from 'src/production/entities/production.entity';
       Vidange,
       Charge,
       Production,
+      Machine,
     ]),
   ],
   controllers: [ReportsController],

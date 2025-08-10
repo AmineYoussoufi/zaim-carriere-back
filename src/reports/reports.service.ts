@@ -14,6 +14,7 @@ import { Vidange } from 'src/vidange/entities/vidange.entity';
 import { Vehicule } from 'src/vehicule/entities/vehicule.entity';
 import { Charge } from 'src/charge/entities/charge.entity';
 import { Production } from 'src/production/entities/production.entity';
+import { Machine } from 'src/machine/entities/machine.entity';
 
 @Injectable()
 export class ReportsService {
@@ -42,6 +43,8 @@ export class ReportsService {
     private readonly chargeRepository: Repository<Charge>,
     @InjectRepository(Production)
     private readonly productionRepository: Repository<Production>,
+    @InjectRepository(Machine)
+    private readonly machineRepository: Repository<Machine>,
   ) {}
 
   private parseDate(date: string): { startDate: Date; endDate: Date } {
@@ -449,7 +452,7 @@ export class ReportsService {
     return stats;
   }
 
-  async getProductionStats(date?: string): Promise<any> {
+  async getProductionStats(date?: string, machineId?: number): Promise<any> {
     // Parse date filter if provided
     let startDate: Date, endDate: Date;
     if (date) {
@@ -463,70 +466,88 @@ export class ReportsService {
       endDate = moment(now).endOf('month').toDate();
     }
 
-    // 1. Get total production quantity by product
-    const productionByProduct = await this.productionRepository
+    // Base query with relations
+    const query = this.productionRepository
       .createQueryBuilder('production')
+      .leftJoinAndSelect('production.machine', 'machine')
+      .leftJoinAndSelect('production.produit', 'produit')
+      .where('production.startDate BETWEEN :start AND :end', { 
+        start: startDate, 
+        end: endDate 
+      });
+
+    // Apply machine filter if provided
+    if (machineId) {
+      query.andWhere('production.machineId = :machineId', { machineId });
+    }
+
+    // 1. Get total production quantity by product
+    const productionByProduct = await query
+      .clone()
       .select('produit.name', 'productName')
+      .addSelect('produit.id', 'productId')
       .addSelect('SUM(production.quantity)', 'totalQuantity')
-      .leftJoin('production.produit', 'produit')
-      .where('production.startDate BETWEEN :start AND :end', {
-        start: startDate,
-        end: endDate,
-      })
-      .andWhere('production.status = :status', { status: 'completed' })
-      .groupBy('produit.name')
+      .groupBy('produit.name, produit.id')
       .getRawMany();
 
     // 2. Get production by machine
-    const productionByMachine = await this.productionRepository
-      .createQueryBuilder('production')
+    const productionByMachine = await query
+      .clone()
       .select('machine.name', 'machineName')
+      .addSelect('machine.id', 'machineId')
       .addSelect('COUNT(production.id)', 'productionCount')
       .addSelect('SUM(production.quantity)', 'totalQuantity')
-      .leftJoin('production.machine', 'machine')
-      .where('production.startDate BETWEEN :start AND :end', {
-        start: startDate,
-        end: endDate,
-      })
-      .groupBy('machine.name')
+      .groupBy('machine.name, machine.id')
       .getRawMany();
 
     // 3. Get production by status
-    const productionByStatus = await this.productionRepository
-      .createQueryBuilder('production')
+    const productionByStatus = await query
+      .clone()
       .select('production.status', 'status')
       .addSelect('COUNT(production.id)', 'count')
-      .where('production.startDate BETWEEN :start AND :end', {
-        start: startDate,
-        end: endDate,
-      })
       .groupBy('production.status')
       .getRawMany();
 
     // 4. Get total completed production quantity
-    const totalCompleted = await this.productionRepository
-      .createQueryBuilder('production')
+    const totalCompleted = await query
+      .clone()
       .select('SUM(production.quantity)', 'total')
-      .where('production.startDate BETWEEN :start AND :end', {
-        start: startDate,
-        end: endDate,
-      })
       .andWhere('production.status = :status', { status: 'completed' })
       .getRawOne();
 
     // 5. Get production timeline (daily completed quantities)
-    const productionTimeline = await this.productionRepository
-      .createQueryBuilder('production')
+    const productionTimeline = await query
+      .clone()
       .select('DATE(production.endDate)', 'day')
       .addSelect('SUM(production.quantity)', 'quantity')
-      .where('production.startDate BETWEEN :start AND :end', {
-        start: startDate,
-        end: endDate,
-      })
       .andWhere('production.status = :status', { status: 'completed' })
       .groupBy('DATE(production.endDate)')
       .orderBy('DATE(production.endDate)')
       .getRawMany();
+
+    // 6. Get average production per machine
+    const avgProductionPerMachine = await query
+      .clone()
+      .select('AVG(daily.quantity)', 'avg')
+      .from(
+        qb => qb
+          .select('machine.id', 'machineId')
+          .addSelect('DATE(production.endDate)', 'day')
+          .addSelect('SUM(production.quantity)', 'quantity')
+          .from(Production, 'production')
+          .leftJoin('production.machine', 'machine')
+          .where('production.startDate BETWEEN :start AND :end', { 
+            start: startDate, 
+            end: endDate 
+          })
+          .andWhere('production.status = :status', { status: 'completed' })
+          .groupBy('machine.id, DATE(production.endDate)'),
+        'daily'
+      )
+      .getRawOne();
+
+    // 7. Get machine utilization (hours used vs available)
+    const machineUtilization = await this.getMachineUtilization(startDate, endDate, machineId);
 
     return {
       period: date || `${moment(startDate).format('MM/YYYY')}`,
@@ -534,18 +555,18 @@ export class ReportsService {
       byProduct: productionByProduct,
       byMachine: productionByMachine,
       byStatus: productionByStatus,
-      timeline: productionTimeline.map((item) => ({
+      timeline: productionTimeline.map(item => ({
         day: moment(item.day).format('YYYY-MM-DD'),
-        quantity: Number(item.quantity),
+        quantity: Number(item.quantity)
       })),
       efficiency: await this.calculateProductionEfficiency(startDate, endDate),
+      avgProductionPerMachine: Number(avgProductionPerMachine?.avg) || 0,
+      machineUtilization,
+      filteredMachineId: machineId || null
     };
   }
 
-  private async calculateProductionEfficiency(
-    startDate: Date,
-    endDate: Date,
-  ): Promise<number> {
+  private async calculateProductionEfficiency(startDate: Date, endDate: Date): Promise<number> {
     // Calculate theoretical maximum production time
     const daysBetween = moment(endDate).diff(moment(startDate), 'days') + 1;
     const maxHours = daysBetween * 24; // Assuming machines could run 24/7
@@ -553,14 +574,8 @@ export class ReportsService {
     // Calculate actual production time
     const actualProductionTime = await this.productionRepository
       .createQueryBuilder('production')
-      .select(
-        'SUM(TIMESTAMPDIFF(HOUR, production.startDate, production.endDate))',
-        'totalHours',
-      )
-      .where('production.startDate BETWEEN :start AND :end', {
-        start: startDate,
-        end: endDate,
-      })
+      .select('SUM(TIMESTAMPDIFF(HOUR, production.startDate, production.endDate))', 'totalHours')
+      .where('production.startDate BETWEEN :start AND :end', { start: startDate, end: endDate })
       .andWhere('production.status = :status', { status: 'completed' })
       .getRawOne();
 
@@ -568,5 +583,58 @@ export class ReportsService {
 
     // Calculate efficiency percentage (actual/max * 100)
     return maxHours > 0 ? Math.round((actualHours / maxHours) * 100) : 0;
+  }
+
+  private async getMachineUtilization(startDate: Date, endDate: Date, machineId?: number): Promise<any[]> {
+    // Get all machines or specific machine
+    const machineQuery = this.machineRepository.createQueryBuilder('machine');
+    if (machineId) {
+      machineQuery.where('machine.id = :machineId', { machineId });
+    }
+
+    const machines = await machineQuery.getMany();
+
+    // Calculate utilization for each machine
+    return Promise.all(machines.map(async machine => {
+      // Get total hours this machine was in use
+      const usage = await this.productionRepository
+        .createQueryBuilder('production')
+        .select('SUM(TIMESTAMPDIFF(HOUR, production.startDate, production.endDate))', 'hoursUsed')
+        .where('production.machineId = :machineId', { machineId: machine.id })
+        .andWhere('production.startDate BETWEEN :start AND :end', { start: startDate, end: endDate })
+        .andWhere('production.status = :status', { status: 'completed' })
+        .getRawOne();
+
+      const hoursUsed = Number(usage?.hoursUsed) || 0;
+      
+      // Calculate total available hours in period
+      const daysBetween = moment(endDate).diff(moment(startDate), 'days') + 1;
+      const hoursAvailable = daysBetween * 24; // Assuming 24/7 availability
+
+      return {
+        machineId: machine.id,
+        machineName: machine.name,
+        hoursUsed,
+        hoursAvailable,
+        utilizationRate: hoursAvailable > 0 
+          ? Math.round((hoursUsed / hoursAvailable) * 100) 
+          : 0,
+        products: await this.getMachineProducts(machine.id)
+      };
+    }));
+  }
+
+  private async getMachineProducts(machineId: number): Promise<any[]> {
+    return this.productionRepository
+      .createQueryBuilder('production')
+      .select('produit.name', 'productName')
+      .addSelect('produit.id', 'productId')
+      .addSelect('SUM(production.quantity)', 'totalProduced')
+      .leftJoin('production.produit', 'produit')
+      .where('production.machineId = :machineId', { machineId })
+      .andWhere('production.status = :status', { status: 'completed' })
+      .groupBy('produit.name, produit.id')
+      .orderBy('SUM(production.quantity)', 'DESC')
+      .getRawMany();
   }
 }

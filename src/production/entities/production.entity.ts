@@ -1,5 +1,5 @@
 // src/production/entities/production.entity.ts
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany } from 'typeorm';
 import { Machine } from '../../machine/entities/machine.entity';
 import { Produit } from 'src/produit/entities/produit.entity';
 
@@ -10,9 +10,6 @@ export class Production {
 
   @ManyToOne(() => Machine, (machine) => machine.id)
   machine: Machine;
-
-  @ManyToOne(() => Produit, (produit) => produit.id)
-  produit: Produit;
 
   @Column('int')
   quantity: number;
