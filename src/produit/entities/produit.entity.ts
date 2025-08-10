@@ -1,4 +1,5 @@
-import { Column, Entity, PrimaryGeneratedColumn } from 'typeorm';
+import { Machine } from 'src/machine/entities/machine.entity';
+import { Column, Entity, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
 
 @Entity()
 export class Produit {
@@ -10,4 +11,7 @@ export class Produit {
 
   @Column()
   prix: number;
+
+  @ManyToOne(() => Machine, (machine) => machine.produits)
+  machine: Machine[];
 }
