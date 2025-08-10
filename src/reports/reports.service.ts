@@ -13,6 +13,7 @@ import { PieceDeRechange } from 'src/piece-de-rechange/entities/piece-de-rechang
 import { Vidange } from 'src/vidange/entities/vidange.entity';
 import { Vehicule } from 'src/vehicule/entities/vehicule.entity';
 import { Charge } from 'src/charge/entities/charge.entity';
+import { Production } from 'src/production/entities/production.entity';
 
 @Injectable()
 export class ReportsService {
@@ -39,6 +40,8 @@ export class ReportsService {
     private readonly vidangeRepository: Repository<Vidange>,
     @InjectRepository(Charge)
     private readonly chargeRepository: Repository<Charge>,
+    @InjectRepository(Production)
+    private readonly productionRepository: Repository<Production>,
   ) {}
 
   private parseDate(date: string): { startDate: Date; endDate: Date } {
@@ -84,7 +87,7 @@ export class ReportsService {
 
     const entree = this.entreeRepository
       .createQueryBuilder('entree')
-      .select('SUM(entree.montant)', 'total')
+      .select('SUM(entree.montant)', 'total');
 
     if (date) {
       const { startDate, endDate } = this.parseDate(date);
@@ -143,7 +146,9 @@ export class ReportsService {
 
     const result = await query.getRawOne();
     const chargeResult = await chargeQuery.getRawOne();
-    return { total: Number(result.totalCredit - chargeResult.totalCharge) || 0 };
+    return {
+      total: Number(result.totalCredit - chargeResult.totalCharge) || 0,
+    };
   }
 
   async getTotalBonsCount(date?: string): Promise<{ total: number }> {
@@ -313,11 +318,21 @@ export class ReportsService {
   }
 
   async getVehiculesStats(date?: string): Promise<any[]> {
-    // Get date range if provided
+    // Parse date filter if provided
     let yearFilter: number | undefined;
+    let monthFilter: number | undefined;
+
     if (date) {
       const parts = date.split('/');
-      if (parts.length === 1) {
+      if (parts.length === 3) {
+        // DD/MM/YYYY format - we'll use MM/YYYY
+        monthFilter = parseInt(parts[1]);
+        yearFilter = parseInt(parts[2]);
+      } else if (parts.length === 2) {
+        // MM/YYYY format
+        monthFilter = parseInt(parts[0]);
+        yearFilter = parseInt(parts[1]);
+      } else if (parts.length === 1) {
         // YYYY format
         yearFilter = parseInt(parts[0]);
       }
@@ -334,16 +349,21 @@ export class ReportsService {
     // Process each vehicle
     const stats = await Promise.all(
       vehicules.map(async (vehicule) => {
-        // 1. Count trips (bons) for this vehicle
+        // 1. Count trips (bons) and sum transport amounts for this vehicle
         const tripsQuery = this.bonRepository
           .createQueryBuilder('bon')
+          .select('COUNT(bon.id)', 'count')
+          .addSelect('SUM(bon.transport)', 'totalTransport')
           .where('bon.vehiculeId = :vehiculeId', { vehiculeId: vehicule.id });
 
         if (yearFilter) {
           tripsQuery.andWhere('bon.annee = :year', { year: yearFilter });
         }
+        if (monthFilter) {
+          tripsQuery.andWhere('bon.mois = :month', { month: monthFilter });
+        }
 
-        const tripsCount = await tripsQuery.getCount();
+        const tripsResult = await tripsQuery.getRawOne();
 
         // 2. Calculate fuel consumption and cost from carburant
         const carburantStats = await this.carburantRepository
@@ -355,12 +375,14 @@ export class ReportsService {
           });
 
         if (yearFilter) {
-          carburantStats.andWhere(
-            'YEAR(STR_TO_DATE(carburant.date, "%d/%m/%Y")) = :year',
-            {
-              year: yearFilter,
-            },
-          );
+          carburantStats.andWhere('YEAR(carburant.date) = :year', {
+            year: yearFilter,
+          });
+        }
+        if (monthFilter) {
+          carburantStats.andWhere('MONTH(carburant.date) = :month', {
+            month: monthFilter,
+          });
         }
 
         const carburantResult = await carburantStats.getRawOne();
@@ -377,6 +399,11 @@ export class ReportsService {
             year: yearFilter,
           });
         }
+        if (monthFilter) {
+          vidangesQuery.andWhere('MONTH(vidange.date) = :month', {
+            month: monthFilter,
+          });
+        }
 
         const vidangesResult = await vidangesQuery.getRawOne();
 
@@ -391,6 +418,11 @@ export class ReportsService {
             year: yearFilter,
           });
         }
+        if (monthFilter) {
+          piecesQuery.andWhere('MONTH(piece.date) = :month', {
+            month: monthFilter,
+          });
+        }
 
         const piecesResult = await piecesQuery.getRawOne();
 
@@ -400,7 +432,11 @@ export class ReportsService {
           marque: vehicule.marque || 'N/A',
           modele: vehicule.modele || 'N/A',
           chauffeur: vehicule.chauffeur?.name || 'Non affecté',
-          totalVoyages: tripsCount || 0,
+          periode: monthFilter
+            ? `${monthFilter.toString().padStart(2, '0')}/${yearFilter}`
+            : yearFilter?.toString() || 'Tous',
+          totalVoyages: parseInt(tripsResult?.count) || 0,
+          totalTransport: parseFloat(tripsResult?.totalTransport) || 0,
           totalCarburant: parseFloat(carburantResult?.totalLiters) || 0,
           coutCarburant: parseFloat(carburantResult?.totalCost) || 0,
           nombreVidanges: parseInt(vidangesResult?.count) || 0,
@@ -411,5 +447,126 @@ export class ReportsService {
     );
 
     return stats;
+  }
+
+  async getProductionStats(date?: string): Promise<any> {
+    // Parse date filter if provided
+    let startDate: Date, endDate: Date;
+    if (date) {
+      const parsedDates = this.parseDate(date);
+      startDate = parsedDates.startDate;
+      endDate = parsedDates.endDate;
+    } else {
+      // Default to current month if no date specified
+      const now = new Date();
+      startDate = moment(now).startOf('month').toDate();
+      endDate = moment(now).endOf('month').toDate();
+    }
+
+    // 1. Get total production quantity by product
+    const productionByProduct = await this.productionRepository
+      .createQueryBuilder('production')
+      .select('produit.name', 'productName')
+      .addSelect('SUM(production.quantity)', 'totalQuantity')
+      .leftJoin('production.produit', 'produit')
+      .where('production.startDate BETWEEN :start AND :end', {
+        start: startDate,
+        end: endDate,
+      })
+      .andWhere('production.status = :status', { status: 'completed' })
+      .groupBy('produit.name')
+      .getRawMany();
+
+    // 2. Get production by machine
+    const productionByMachine = await this.productionRepository
+      .createQueryBuilder('production')
+      .select('machine.name', 'machineName')
+      .addSelect('COUNT(production.id)', 'productionCount')
+      .addSelect('SUM(production.quantity)', 'totalQuantity')
+      .leftJoin('production.machine', 'machine')
+      .where('production.startDate BETWEEN :start AND :end', {
+        start: startDate,
+        end: endDate,
+      })
+      .groupBy('machine.name')
+      .getRawMany();
+
+    // 3. Get production by status
+    const productionByStatus = await this.productionRepository
+      .createQueryBuilder('production')
+      .select('production.status', 'status')
+      .addSelect('COUNT(production.id)', 'count')
+      .where('production.startDate BETWEEN :start AND :end', {
+        start: startDate,
+        end: endDate,
+      })
+      .groupBy('production.status')
+      .getRawMany();
+
+    // 4. Get total completed production quantity
+    const totalCompleted = await this.productionRepository
+      .createQueryBuilder('production')
+      .select('SUM(production.quantity)', 'total')
+      .where('production.startDate BETWEEN :start AND :end', {
+        start: startDate,
+        end: endDate,
+      })
+      .andWhere('production.status = :status', { status: 'completed' })
+      .getRawOne();
+
+    // 5. Get production timeline (daily completed quantities)
+    const productionTimeline = await this.productionRepository
+      .createQueryBuilder('production')
+      .select('DATE(production.endDate)', 'day')
+      .addSelect('SUM(production.quantity)', 'quantity')
+      .where('production.startDate BETWEEN :start AND :end', {
+        start: startDate,
+        end: endDate,
+      })
+      .andWhere('production.status = :status', { status: 'completed' })
+      .groupBy('DATE(production.endDate)')
+      .orderBy('DATE(production.endDate)')
+      .getRawMany();
+
+    return {
+      period: date || `${moment(startDate).format('MM/YYYY')}`,
+      totalCompleted: Number(totalCompleted?.total) || 0,
+      byProduct: productionByProduct,
+      byMachine: productionByMachine,
+      byStatus: productionByStatus,
+      timeline: productionTimeline.map((item) => ({
+        day: moment(item.day).format('YYYY-MM-DD'),
+        quantity: Number(item.quantity),
+      })),
+      efficiency: await this.calculateProductionEfficiency(startDate, endDate),
+    };
+  }
+
+  private async calculateProductionEfficiency(
+    startDate: Date,
+    endDate: Date,
+  ): Promise<number> {
+    // Calculate theoretical maximum production time
+    const daysBetween = moment(endDate).diff(moment(startDate), 'days') + 1;
+    const maxHours = daysBetween * 24; // Assuming machines could run 24/7
+
+    // Calculate actual production time
+    const actualProductionTime = await this.productionRepository
+      .createQueryBuilder('production')
+      .select(
+        'SUM(TIMESTAMPDIFF(HOUR, production.startDate, production.endDate))',
+        'totalHours',
+      )
+      .where('production.startDate BETWEEN :start AND :end', {
+        start: startDate,
+        end: endDate,
+      })
+      .andWhere('production.status = :status', { status: 'completed' })
+      .getRawOne();
+
+    const actualHours = Number(actualProductionTime?.totalHours) || 0;
+
+    // Calculate efficiency percentage (actual/max * 100)
+    return maxHours > 0 ? Math.round((actualHours / maxHours) * 100) : 0;
   }
 }

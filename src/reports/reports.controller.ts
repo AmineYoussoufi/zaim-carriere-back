@@ -33,4 +33,8 @@ export class ReportsController {
   async getRapportVehicules(@Query('date') date?: string) {
     return this.reportsService.getVehiculesStats(date);
   }
+  @Get('production')
+  async getRapportProduction(@Query('date') date?: string) {
+    return this.reportsService.getProductionStats(date);
+  }
 }

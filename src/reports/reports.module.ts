@@ -13,6 +13,7 @@ import { Vehicule } from 'src/vehicule/entities/vehicule.entity';
 import { PieceDeRechange } from 'src/piece-de-rechange/entities/piece-de-rechange.entity';
 import { Vidange } from 'src/vidange/entities/vidange.entity';
 import { Charge } from 'src/charge/entities/charge.entity';
+import { Production } from 'src/production/entities/production.entity';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { Charge } from 'src/charge/entities/charge.entity';
       PieceDeRechange,
       Vidange,
       Charge,
+      Production,
     ]),
   ],
   controllers: [ReportsController],
