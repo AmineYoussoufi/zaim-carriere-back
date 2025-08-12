@@ -32,6 +32,8 @@ import { VidangeModule } from './vidange/vidange.module';
 import { ProductionModule } from './production/production.module';
 import { DevisModule } from './devis/devis.module';
 import { VisiteTechniqueModule } from './visite-technique/visite-technique.module';
+import { MachineTypeModule } from './machine-type/machine-type.module';
+import { AchatTypeModule } from './achat-type/achat-type.module';
 
 @Module({
   imports: [
@@ -81,6 +83,8 @@ import { VisiteTechniqueModule } from './visite-technique/visite-technique.modul
     ProductionModule,
     DevisModule,
     VisiteTechniqueModule,
+    MachineTypeModule,
+    AchatTypeModule,
   ],
   controllers: [AppController, AuthController],
   providers: [AppService],

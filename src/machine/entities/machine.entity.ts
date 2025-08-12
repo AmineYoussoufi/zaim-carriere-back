@@ -15,7 +15,7 @@ export class Machine {
   description: string;
 
   @Column({ nullable: true })
-  location: string;
+  type: string;
 
   @OneToMany(
     () => PieceDeRechange,
@@ -23,7 +23,10 @@ export class Machine {
   )
   piecesDeRechange: PieceDeRechange[];
 
-  @OneToMany(() => Produit, (produit) => produit.machine)
+  @OneToMany(() => Produit, (produit) => produit.machine, {
+    cascade: true,
+    eager: true, // Load products automatically when loading machine
+  })
   produits: Produit[];
 
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })

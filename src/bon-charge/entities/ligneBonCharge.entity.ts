@@ -7,6 +7,7 @@ import {
 } from 'typeorm';
 import { BonCharge } from './bon-charge.entity';
 import { Destination } from './destination.entity';
+import { AchatType } from 'src/achat-type/entities/achat-type.entity';
 
 @Entity()
 export class LigneBonCharge {
@@ -30,8 +31,11 @@ export class LigneBonCharge {
   @Column({ default: '' })
   produit: string;
 
-  @Column({ default: '' })
-  destinationType: string;
+  @ManyToOne(() => AchatType, (achatType) => achatType.id, {
+    onDelete: 'CASCADE',
+    onUpdate: 'CASCADE',
+  })
+  destinationType: AchatType;
 
   @ManyToOne(() => BonCharge, (bon) => bon.id, {
     onDelete: 'CASCADE',

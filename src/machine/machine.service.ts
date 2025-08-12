@@ -19,11 +19,16 @@ export class MachineService {
   }
 
   async findAll(): Promise<Machine[]> {
-    return await this.machineRepository.find();
+    return await this.machineRepository.find({
+      relations: ['piecesDeRechange', 'produits'],
+    });
   }
 
   async findOne(id: number): Promise<Machine> {
-    const machine = await this.machineRepository.findOne({ where: { id } });
+    const machine = await this.machineRepository.findOne({
+      where: { id },
+      relations: ['produits'],
+    });
     if (!machine) {
       throw new NotFoundException(`Machine with ID ${id} not found`);
     }

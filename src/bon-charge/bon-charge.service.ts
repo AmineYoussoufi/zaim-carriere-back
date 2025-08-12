@@ -41,6 +41,7 @@ export class BonChargeService {
       where: search ? { numero: Like(`${search}%`) } : {},
       relations: {
         fournisseur: true,
+        lignes: { destinationType: true },
       },
       skip: (page - 1) * limit,
       take: limit,
@@ -59,7 +60,10 @@ export class BonChargeService {
         id: id,
       },
       relations: {
-        lignes: { destinations: { machine: true, vehicle: true } },
+        lignes: {
+          destinations: { machine: true, vehicle: true },
+          destinationType: true,
+        },
         fournisseur: true,
       },
     });

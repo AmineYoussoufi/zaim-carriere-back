@@ -1,5 +1,11 @@
 // src/production/entities/production.entity.ts
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  ManyToOne,
+  OneToMany,
+} from 'typeorm';
 import { Machine } from '../../machine/entities/machine.entity';
 import { Produit } from 'src/produit/entities/produit.entity';
 

@@ -171,7 +171,9 @@ export class CaisseService {
             moment(endDate).format('YYYY-MM-DD'),
           ),
         },
-        destinationType: 'Pièce de rechange',
+        destinationType: {
+          categorie: 'PIECE',
+        },
       },
     });
 

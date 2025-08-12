@@ -471,9 +471,9 @@ export class ReportsService {
       .createQueryBuilder('production')
       .leftJoinAndSelect('production.machine', 'machine')
       .leftJoinAndSelect('production.produit', 'produit')
-      .where('production.startDate BETWEEN :start AND :end', { 
-        start: startDate, 
-        end: endDate 
+      .where('production.startDate BETWEEN :start AND :end', {
+        start: startDate,
+        end: endDate,
       });
 
     // Apply machine filter if provided
@@ -530,24 +530,29 @@ export class ReportsService {
       .clone()
       .select('AVG(daily.quantity)', 'avg')
       .from(
-        qb => qb
-          .select('machine.id', 'machineId')
-          .addSelect('DATE(production.endDate)', 'day')
-          .addSelect('SUM(production.quantity)', 'quantity')
-          .from(Production, 'production')
-          .leftJoin('production.machine', 'machine')
-          .where('production.startDate BETWEEN :start AND :end', { 
-            start: startDate, 
-            end: endDate 
-          })
-          .andWhere('production.status = :status', { status: 'completed' })
-          .groupBy('machine.id, DATE(production.endDate)'),
-        'daily'
+        (qb) =>
+          qb
+            .select('machine.id', 'machineId')
+            .addSelect('DATE(production.endDate)', 'day')
+            .addSelect('SUM(production.quantity)', 'quantity')
+            .from(Production, 'production')
+            .leftJoin('production.machine', 'machine')
+            .where('production.startDate BETWEEN :start AND :end', {
+              start: startDate,
+              end: endDate,
+            })
+            .andWhere('production.status = :status', { status: 'completed' })
+            .groupBy('machine.id, DATE(production.endDate)'),
+        'daily',
       )
       .getRawOne();
 
     // 7. Get machine utilization (hours used vs available)
-    const machineUtilization = await this.getMachineUtilization(startDate, endDate, machineId);
+    const machineUtilization = await this.getMachineUtilization(
+      startDate,
+      endDate,
+      machineId,
+    );
 
     return {
       period: date || `${moment(startDate).format('MM/YYYY')}`,
@@ -555,18 +560,21 @@ export class ReportsService {
       byProduct: productionByProduct,
       byMachine: productionByMachine,
       byStatus: productionByStatus,
-      timeline: productionTimeline.map(item => ({
+      timeline: productionTimeline.map((item) => ({
         day: moment(item.day).format('YYYY-MM-DD'),
-        quantity: Number(item.quantity)
+        quantity: Number(item.quantity),
       })),
       efficiency: await this.calculateProductionEfficiency(startDate, endDate),
       avgProductionPerMachine: Number(avgProductionPerMachine?.avg) || 0,
       machineUtilization,
-      filteredMachineId: machineId || null
+      filteredMachineId: machineId || null,
     };
   }
 
-  private async calculateProductionEfficiency(startDate: Date, endDate: Date): Promise<number> {
+  private async calculateProductionEfficiency(
+    startDate: Date,
+    endDate: Date,
+  ): Promise<number> {
     // Calculate theoretical maximum production time
     const daysBetween = moment(endDate).diff(moment(startDate), 'days') + 1;
     const maxHours = daysBetween * 24; // Assuming machines could run 24/7
@@ -574,8 +582,14 @@ export class ReportsService {
     // Calculate actual production time
     const actualProductionTime = await this.productionRepository
       .createQueryBuilder('production')
-      .select('SUM(TIMESTAMPDIFF(HOUR, production.startDate, production.endDate))', 'totalHours')
-      .where('production.startDate BETWEEN :start AND :end', { start: startDate, end: endDate })
+      .select(
+        'SUM(TIMESTAMPDIFF(HOUR, production.startDate, production.endDate))',
+        'totalHours',
+      )
+      .where('production.startDate BETWEEN :start AND :end', {
+        start: startDate,
+        end: endDate,
+      })
       .andWhere('production.status = :status', { status: 'completed' })
       .getRawOne();
 
@@ -585,7 +599,11 @@ export class ReportsService {
     return maxHours > 0 ? Math.round((actualHours / maxHours) * 100) : 0;
   }
 
-  private async getMachineUtilization(startDate: Date, endDate: Date, machineId?: number): Promise<any[]> {
+  private async getMachineUtilization(
+    startDate: Date,
+    endDate: Date,
+    machineId?: number,
+  ): Promise<any[]> {
     // Get all machines or specific machine
     const machineQuery = this.machineRepository.createQueryBuilder('machine');
     if (machineId) {
@@ -595,33 +613,42 @@ export class ReportsService {
     const machines = await machineQuery.getMany();
 
     // Calculate utilization for each machine
-    return Promise.all(machines.map(async machine => {
-      // Get total hours this machine was in use
-      const usage = await this.productionRepository
-        .createQueryBuilder('production')
-        .select('SUM(TIMESTAMPDIFF(HOUR, production.startDate, production.endDate))', 'hoursUsed')
-        .where('production.machineId = :machineId', { machineId: machine.id })
-        .andWhere('production.startDate BETWEEN :start AND :end', { start: startDate, end: endDate })
-        .andWhere('production.status = :status', { status: 'completed' })
-        .getRawOne();
+    return Promise.all(
+      machines.map(async (machine) => {
+        // Get total hours this machine was in use
+        const usage = await this.productionRepository
+          .createQueryBuilder('production')
+          .select(
+            'SUM(TIMESTAMPDIFF(HOUR, production.startDate, production.endDate))',
+            'hoursUsed',
+          )
+          .where('production.machineId = :machineId', { machineId: machine.id })
+          .andWhere('production.startDate BETWEEN :start AND :end', {
+            start: startDate,
+            end: endDate,
+          })
+          .andWhere('production.status = :status', { status: 'completed' })
+          .getRawOne();
 
-      const hoursUsed = Number(usage?.hoursUsed) || 0;
-      
-      // Calculate total available hours in period
-      const daysBetween = moment(endDate).diff(moment(startDate), 'days') + 1;
-      const hoursAvailable = daysBetween * 24; // Assuming 24/7 availability
+        const hoursUsed = Number(usage?.hoursUsed) || 0;
 
-      return {
-        machineId: machine.id,
-        machineName: machine.name,
-        hoursUsed,
-        hoursAvailable,
-        utilizationRate: hoursAvailable > 0 
-          ? Math.round((hoursUsed / hoursAvailable) * 100) 
-          : 0,
-        products: await this.getMachineProducts(machine.id)
-      };
-    }));
+        // Calculate total available hours in period
+        const daysBetween = moment(endDate).diff(moment(startDate), 'days') + 1;
+        const hoursAvailable = daysBetween * 24; // Assuming 24/7 availability
+
+        return {
+          machineId: machine.id,
+          machineName: machine.name,
+          hoursUsed,
+          hoursAvailable,
+          utilizationRate:
+            hoursAvailable > 0
+              ? Math.round((hoursUsed / hoursAvailable) * 100)
+              : 0,
+          products: await this.getMachineProducts(machine.id),
+        };
+      }),
+    );
   }
 
   private async getMachineProducts(machineId: number): Promise<any[]> {

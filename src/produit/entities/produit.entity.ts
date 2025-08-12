@@ -13,5 +13,5 @@ export class Produit {
   prix: number;
 
   @ManyToOne(() => Machine, (machine) => machine.produits)
-  machine: Machine[];
+  machine: Machine;
 }
